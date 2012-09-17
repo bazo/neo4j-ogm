@@ -1,0 +1,197 @@
+<?php
+/**
+ * Copyright (C) 2012 Louis-Philippe Huberdeau
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a 
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+namespace Nodes;
+use Doctrine\Common\Collections\ArrayCollection;
+use OGM\Neo4j\Mapping\Annotations as OGM;
+
+/**
+ * @OGM\Node
+ */
+class Movie
+{
+    /**
+     * @OGM\Id
+     */
+    protected $id;
+
+    /**
+     * @OGM\String
+     * @OGM\Index
+     */
+    protected $title;
+
+    /**
+     * @OGM\String
+     */
+    protected $category;
+
+    /**
+     * @OGM\Data
+     */
+    protected $releaseDate;
+
+    /**
+     * @OGM\String
+     * @OGM\Index
+     */
+    protected $movieRegistryCode;
+
+    /**
+     * @OGM\HasMany(targetNode="Person", relationship="Actor")
+     */
+    protected $actors;
+
+    /**
+     * @OGM\HasOne(targetNode="Person", relationship="MainActor")
+     */
+    protected $mainActor;
+
+    /**
+     * @OGM\HasMany(targetNode="Cinama", relationship="PresentedMovie")
+     */
+    protected $cinemas;
+
+    /**
+     * @OGM\Json
+     */
+    protected $blob;
+
+    function __construct()
+    {
+        $this->actors = new ArrayCollection;
+        $this->cinemas = new ArrayCollection;
+        $this->movieRegistryCode = uniqid();
+    }
+
+    function getId()
+    {
+        return $this->id;
+    }
+
+    function setId($id)
+    {
+        $this->id = $id;
+    }
+
+    function getTitle()
+    {
+        return $this->title;
+    }
+
+    function addTitle($part)
+    {
+        $this->title .= $part;
+    }
+
+    function setTitle($title)
+    {
+        $this->title = $title;
+    }
+
+    function getReleaseDate()
+    {
+        return $this->releaseDate;
+    }
+
+    function setReleaseDate($date)
+    {
+        $this->releaseDate = $date;
+    }
+
+    function getMovieRegistryCode()
+    {
+        return $this->movieRegistryCode;
+    }
+
+    function setMovieRegistryCode($code)
+    {
+        $this->movieRegistryCode = $code;
+    }
+
+    function getActors()
+    {
+        return $this->actors;
+    }
+
+    function addActor($actor)
+    {
+        $this->actors->add($actor);
+    }
+
+    function removeActor($actor)
+    {
+        $this->actors->removeElement($actor);
+    }
+
+    function setActors(ArrayCollection $actors)
+    {
+        $this->actors = $actors;
+    }
+
+    function getCinemas()
+    {
+        return $this->cinemas;
+    }
+
+    function addCinema($cinema)
+    {
+        $this->cinemas->add($cinema);
+    }
+
+    function setCinemas(ArrayCollection $cinemas)
+    {
+        $this->cinemas = $cinemas;
+    }
+
+    function setMainActor($actor)
+    {
+        $this->mainActor = $actor;
+    }
+
+    function getMainActor()
+    {
+        return $this->mainActor;
+    }
+
+    function getBlob()
+    {
+        return $this->blob;
+    }
+
+    function setBlob($blob)
+    {
+        $this->blob = $blob;
+    }
+
+    function setCategory($category)
+    {
+        $this->category = $category;
+    }
+
+    function getCategory()
+    {
+        return $this->category;
+    }
+}
+
