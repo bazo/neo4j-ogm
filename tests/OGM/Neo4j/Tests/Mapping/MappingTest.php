@@ -20,9 +20,29 @@ class MappingTest extends \OGM\Neo4j\Tests\BaseTest
         return $annotationDriver;
     }
 	
-	public function testGetClassMetaData()
+	public function testGetAllClassNames()
 	{
 		$driver = $this->loadDriver();
-		$driver->getAllClassNames();
+		$names = $driver->getAllClassNames();
+	
+		$expected = array(
+			'Nodes\Cinema',
+			'Nodes\Movie',
+			'Nodes\Person'
+		);
+		
+		$this->assertEquals($expected, $names);
+	}
+	
+	public function testGetProperties()
+	{
+		$driver = $this->loadDriver();
+		$class = new \OGM\Neo4j\Mapping\ClassMetadataInfo('Nodes\Person');
+		$meta = $driver->loadMetadataForClass('Nodes\Person', $class);
+		
+		//var_dump($class->getFieldNames());exit;
+		
+		$this->markTestIncomplete();
+		
 	}
 }

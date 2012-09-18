@@ -21,6 +21,9 @@ abstract class BaseTest extends \PHPUnit_Framework_TestCase
 	
 	/** @var Unit */
     protected $uow;
+	
+	/** @var \OGM\Neo4j\SchemaManager */
+	protected $schemaManager;
 
     public function setUp()
     {
@@ -42,6 +45,7 @@ abstract class BaseTest extends \PHPUnit_Framework_TestCase
 		
         $this->nm = NodeManager::create($config, $client, $evm);
         $this->uow = $this->nm->getUnitOfWork();
+		$this->schemaManager = $this->nm->getSchemaManager();
     }
 
     protected function getTestDocumentManager($metadataDriver = null)

@@ -45,6 +45,11 @@ class NodeManagerTest extends \OGM\Neo4j\Tests\BaseTest
     {
         $this->assertInstanceOf('\OGM\Neo4j\SchemaManager', $this->nm->getSchemaManager());
     }
+	
+	public function testGetClient()
+    {
+        $this->assertInstanceOf('\Neoxygen\UpDown\UpDownClient', $this->nm->getClient());
+    }
 
 //    public function testCreateQueryBuilder()
 //    {

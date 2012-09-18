@@ -22,4 +22,5 @@ namespace OGM\Neo4j\Mapping\Annotations;
 /** @Annotation */
 final class Index extends AbstractIndex
 {
+	public $type = 'exact';
 }

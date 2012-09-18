@@ -20,7 +20,7 @@
 namespace OGM\Neo4j\Mapping\Annotations;
 
 /** @Annotation */
-final class Node extends AbstractDocument
+final class Relationship extends AbstractDocument
 {
     public $repositoryClass;
     public $indexes = array();

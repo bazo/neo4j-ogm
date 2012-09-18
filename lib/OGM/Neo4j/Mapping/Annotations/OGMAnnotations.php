@@ -19,9 +19,14 @@
  * <http://www.doctrine-project.org>.
  */
 
+require_once __DIR__ . '/AbstractField.php';
+require_once __DIR__ . '/AbstractIndex.php';
+require_once __DIR__ . '/AbstractNode.php';
 require_once __DIR__ . '/Boolean.php';
 require_once __DIR__ . '/Date.php';
 require_once __DIR__ . '/Float.php';
+require_once __DIR__ . '/HasMany.php';
+require_once __DIR__ . '/HasOne.php';
 require_once __DIR__ . '/Hash.php';
 require_once __DIR__ . '/Id.php';
 require_once __DIR__ . '/Index.php';

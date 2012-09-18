@@ -6,6 +6,8 @@ use Doctrine\Common\EventManager;
 use OGM\Neo4j\Hydrator\HydratorFactory;
 use OGM\Neo4j\Proxy\ProxyFactory;
 
+use Neoxygen\UpDown\UpDownClient as Client;
+
 /**
  * NodeManager
  *
@@ -19,17 +21,21 @@ class NodeManager implements ObjectManager
 		$metadataFactory,
 			
 		/** @var UnitOfWork */	
-		$unitOfWork
+		$unitOfWork,
+		
+		/** @var Client */	
+		$client
 	;
 	
-	public static function create(Configuration $config = null, $client = null, EventManager $eventManager = null)
+	public static function create(Configuration $config = null, Client $client = null, EventManager $eventManager = null)
 	{
 		return new static($config, $client, $eventManager);
 	}
 	
-    public function __construct(Configuration $config = null, $client = null, EventManager $eventManager = null)
+    public function __construct(Configuration $config = null, Client $client = null, EventManager $eventManager = null)
     {
         $this->config = $config ?: new Configuration;
+		$this->client = $client;
         $this->eventManager = $eventManager ?: new EventManager;
 
         $this->metadataFactory = new Mapping\ClassMetadataFactory;
@@ -111,14 +117,22 @@ class NodeManager implements ObjectManager
     }
 	
 	/**
-     * Returns SchemaManager, used to create/drop indexes/collections/databases.
+     * Returns SchemaManager, used to create/drop indexes.
      *
-     * @return \Doctrine\ODM\MongoDB\SchemaManager
+     * @return \OGM\Neo4j\SchemaManager
      */
     public function getSchemaManager()
     {
         return $this->schemaManager;
     }
+	
+	/**
+	 * @return \Neoxygen\UpDown\UpDownClient
+	 */
+	public function getClient()
+	{
+		return $this->client;
+	}
 	
 	/**
      * Finds an object by its identifier.

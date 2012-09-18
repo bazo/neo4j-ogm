@@ -16,7 +16,6 @@
  * and is licensed under the MIT license. For more information, see
  * <http://www.doctrine-project.org>.
  */
-
 namespace OGM\Neo4j\Mapping\Driver;
 
 use Doctrine\Common\Annotations\AnnotationReader;
@@ -24,7 +23,6 @@ use Doctrine\Common\Annotations\AnnotationRegistry;
 use Doctrine\Common\Annotations\Reader;
 use Doctrine\Common\Persistence\Mapping\ClassMetadata;
 use Doctrine\Common\Persistence\Mapping\Driver\AnnotationDriver as AbstractAnnotationDriver;
-
 use OGM\Neo4j\Events;
 use OGM\Neo4j\Mapping\Annotations as OGM;
 use OGM\Neo4j\Mapping\ClassMetadataInfo;
@@ -39,169 +37,225 @@ use OGM\Neo4j\Mapping\MappingException;
  */
 class AnnotationDriver extends AbstractAnnotationDriver
 {
-    protected $entityAnnotationClasses = array(
-        'Doctrine\\OGM\\MongoDB\\Mapping\\Annotations\\Document' => 1,
-        'Doctrine\\OGM\\MongoDB\\Mapping\\Annotations\\MappedSuperclass' => 2,
-        'Doctrine\\OGM\\MongoDB\\Mapping\\Annotations\\EmbeddedDocument' => 3,
-    );
 
-    /**
-     * Registers annotation classes to the common registry.
-     *
-     * This method should be called when bootstrapping your application.
-     */
-    public static function registerAnnotationClasses()
-    {
-        AnnotationRegistry::registerFile(__DIR__ . '/../Annotations/OGMAnnotations.php');
-    }
+	protected $entityAnnotationClasses = array(
+		'OGM\\Neo4j\\Mapping\\Annotations\\Node' => 1,
+		'OGM\\Neo4j\\Mapping\\Annotations\\Relationship' => 2,
+		'OGM\\Neo4j\\Mapping\\Annotations\\MappedSuperclass' => 3,
+	);
 
-    /**
-     * {@inheritdoc}
-     */
-    public function loadMetadataForClass($className, ClassMetadata $class)
-    {
-        /** @var $class ClassMetadataInfo */
-        $reflClass = $class->getReflectionClass();
+	/**
+	 * Registers annotation classes to the common registry.
+	 *
+	 * This method should be called when bootstrapping your application.
+	 */
+	public static function registerAnnotationClasses()
+	{
+		AnnotationRegistry::registerFile(__DIR__ . '/../Annotations/OGMAnnotations.php');
+	}
 
-        $documentAnnots = array();
-        foreach ($this->reader->getClassAnnotations($reflClass) as $annot) {
-            foreach ($this->entityAnnotationClasses as $annotClass => $i) {
-                if ($annot instanceof $annotClass) {
-                    $documentAnnots[$i] = $annot;
-                    continue 2;
-                }
-            }
+	/**
+	 * {@inheritdoc}
+	 */
+	public function loadMetadataForClass($className, ClassMetadata $class)
+	{
+		/** @var $class ClassMetadataInfo */
+		$reflClass = $class->getReflectionClass();
 
-            // non-document class annotations
-            if ($annot instanceof OGM\AbstractIndex) {
-                $this->addIndex($class, $annot);
-            }
-            if ($annot instanceof OGM\Indexes) {
-                foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $index) {
-                    $this->addIndex($class, $index);
-                }
-            }
-        }
+		$documentAnnots = array();
+		foreach ($this->reader->getClassAnnotations($reflClass) as $annot)
+		{
+			foreach ($this->entityAnnotationClasses as $annotClass => $i)
+			{
+				if ($annot instanceof $annotClass)
+				{
+					$documentAnnots[$i] = $annot;
+					continue 2;
+				}
+			}
 
-        if (!$documentAnnots) {
-            throw MappingException::classIsNotAValidNode($className);
-        }
+			// non-document class annotations
+			if ($annot instanceof OGM\AbstractIndex)
+			{
+				$this->addIndex($class, $annot);
+			}
+			if ($annot instanceof OGM\Indexes)
+			{
+				foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $index)
+				{
+					$this->addIndex($class, $index);
+				}
+			}
+		}
 
-        // find the winning document annotation
-        ksort($documentAnnots);
-        $documentAnnot = reset($documentAnnots);
+		if (!$documentAnnots)
+		{
+			throw MappingException::classIsNotAValidNode($className);
+		}
 
-        if ($documentAnnot instanceof OGM\MappedSuperclass) {
-            $class->isMappedSuperclass = true;
-        } elseif ($documentAnnot instanceof OGM\EmbeddedDocument) {
-            $class->isEmbeddedDocument = true;
-        }
-        if (isset($documentAnnot->repositoryClass)) {
-            $class->setCustomRepositoryClass($documentAnnot->repositoryClass);
-        }
-        if (isset($documentAnnot->indexes)) {
-            foreach ($documentAnnot->indexes as $index) {
-                $this->addIndex($class, $index);
-            }
-        }
-        if (isset($documentAnnot->requireIndexes)) {
-            $class->setRequireIndexes($documentAnnot->requireIndexes);
-        }
+		// find the winning document annotation
+		ksort($documentAnnots);
+		$documentAnnot = reset($documentAnnots);
 
-        foreach ($reflClass->getProperties() as $property) {
-            if ($class->isMappedSuperclass && !$property->isPrivate() || $class->isInheritedField($property->name)) {
-                continue;
-            }
+		if ($documentAnnot instanceof OGM\MappedSuperclass)
+		{
+			$class->isMappedSuperclass = true;
+		}
+		elseif ($documentAnnot instanceof OGM\Node)
+		{
+			$class->isNode = true;
+		}
+		elseif ($documentAnnot instanceof OGM\Relationship)
+		{
+			$class->isRelationship = true;
+		}
+		if (isset($documentAnnot->repositoryClass))
+		{
+			$class->setCustomRepositoryClass($documentAnnot->repositoryClass);
+		}
+		if (isset($documentAnnot->indexes))
+		{
+			foreach ($documentAnnot->indexes as $index)
+			{
+				$this->addIndex($class, $index);
+			}
+		}
+		if (isset($documentAnnot->requireIndexes))
+		{
+			$class->setRequireIndexes($documentAnnot->requireIndexes);
+		}
 
-            $indexes = array();
-            $mapping = array('fieldName' => $property->getName());
-            $fieldAnnot = null;
+		foreach ($reflClass->getProperties() as $property)
+		{
+			if ($class->isMappedSuperclass && !$property->isPrivate() || $class->isInheritedField($property->name))
+			{
+				continue;
+			}
 
-            foreach ($this->reader->getPropertyAnnotations($property) as $annot) {
-                if ($annot instanceof OGM\AbstractField) {
-                    $fieldAnnot = $annot;
-                }
-                if ($annot instanceof OGM\AbstractIndex) {
-                    $indexes[] = $annot;
-                }
-                if ($annot instanceof OGM\Indexes) {
-                    foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $index) {
-                        $indexes[] = $index;
-                    }
-                }
-            }
+			$indexes = array();
+			$mapping = array('fieldName' => $property->getName());
+			$fieldAnnot = null;
 
-            if ($fieldAnnot) {
-                $mapping = array_replace($mapping, (array) $fieldAnnot);
-                $class->mapField($mapping);
-            }
+			foreach ($this->reader->getPropertyAnnotations($property) as $annot)
+			{
+				if ($annot instanceof OGM\AbstractField)
+				{
+					$fieldAnnot = $annot;
+				}
+				if ($annot instanceof OGM\AbstractIndex)
+				{
+					$indexes[] = $annot;
+				}
+				if ($annot instanceof OGM\Indexes)
+				{
+					foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $index)
+					{
+						$indexes[] = $index;
+					}
+				}
+			}
 
-            if ($indexes) {
-                foreach ($indexes as $index) {
-                    $name = isset($mapping['name']) ? $mapping['name'] : $mapping['fieldName'];
-                    $keys = array($name => $index->order ?: 'asc');
-                    $this->addIndex($class, $index, $keys);
-                }
-            }
-        }
+			if ($fieldAnnot)
+			{
+				$mapping = array_replace($mapping, (array) $fieldAnnot);
+				$class->mapField($mapping);
+			}
 
-        foreach ($reflClass->getMethods() as $method) {
-            if ($method->isPublic()) {
-                foreach ($this->reader->getMethodAnnotations($method) as $annot) {
-                    if ($annot instanceof OGM\AlsoLoad) {
-                        foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $field) {
-                            $class->alsoLoadMethods[$field] = $method->getName();
-                        }
-                    } elseif ($annot instanceof OGM\PrePersist) {
-                        $class->addLifecycleCallback($method->getName(), Events::prePersist);
-                    } elseif ($annot instanceof OGM\PostPersist) {
-                        $class->addLifecycleCallback($method->getName(), Events::postPersist);
-                    } elseif ($annot instanceof OGM\PreUpdate) {
-                        $class->addLifecycleCallback($method->getName(), Events::preUpdate);
-                    } elseif ($annot instanceof OGM\PostUpdate) {
-                        $class->addLifecycleCallback($method->getName(), Events::postUpdate);
-                    } elseif ($annot instanceof OGM\PreRemove) {
-                        $class->addLifecycleCallback($method->getName(), Events::preRemove);
-                    } elseif ($annot instanceof OGM\PostRemove) {
-                        $class->addLifecycleCallback($method->getName(), Events::postRemove);
-                    } elseif ($annot instanceof OGM\PreLoad) {
-                        $class->addLifecycleCallback($method->getName(), Events::preLoad);
-                    } elseif ($annot instanceof OGM\PostLoad) {
-                        $class->addLifecycleCallback($method->getName(), Events::postLoad);
-                    } elseif ($annot instanceof OGM\PreFlush) {
-                        $class->addLifecycleCallback($method->getName(), Events::preFlush);
-                    }
-                }
-            }
-        }
-    }
+			if ($indexes)
+			{
+				foreach ($indexes as $index)
+				{
+					$name = isset($mapping['name']) ? $mapping['name'] : $mapping['fieldName'];
+					$keys = array($name => $index->order ? : 'asc');
+					$this->addIndex($class, $index, $keys);
+				}
+			}
+		}
 
-    private function addIndex(ClassMetadataInfo $class, $index, array $keys = array())
-    {
-        $keys = array_merge($keys, $index->keys);
-        $options = array();
-        $allowed = array('name', 'dropDups', 'background', 'safe', 'unique', 'sparse', 'expireAfterSeconds');
-        foreach ($allowed as $name) {
-            if (isset($index->$name)) {
-                $options[$name] = $index->$name;
-            }
-        }
-        $options = array_merge($options, $index->options);
-        $class->addIndex($keys, $options);
-    }
+		foreach ($reflClass->getMethods() as $method)
+		{
+			if ($method->isPublic())
+			{
+				foreach ($this->reader->getMethodAnnotations($method) as $annot)
+				{
+					if ($annot instanceof OGM\AlsoLoad)
+					{
+						foreach (is_array($annot->value) ? $annot->value : array($annot->value) as $field)
+						{
+							$class->alsoLoadMethods[$field] = $method->getName();
+						}
+					}
+					elseif ($annot instanceof OGM\PrePersist)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::prePersist);
+					}
+					elseif ($annot instanceof OGM\PostPersist)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::postPersist);
+					}
+					elseif ($annot instanceof OGM\PreUpdate)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::preUpdate);
+					}
+					elseif ($annot instanceof OGM\PostUpdate)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::postUpdate);
+					}
+					elseif ($annot instanceof OGM\PreRemove)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::preRemove);
+					}
+					elseif ($annot instanceof OGM\PostRemove)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::postRemove);
+					}
+					elseif ($annot instanceof OGM\PreLoad)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::preLoad);
+					}
+					elseif ($annot instanceof OGM\PostLoad)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::postLoad);
+					}
+					elseif ($annot instanceof OGM\PreFlush)
+					{
+						$class->addLifecycleCallback($method->getName(), Events::preFlush);
+					}
+				}
+			}
+		}
+	}
 
-    /**
-     * Factory method for the Annotation Driver
-     *
-     * @param array|string $paths
-     * @param Reader $reader
-     * @return AnnotationDriver
-     */
-    static public function create($paths = array(), Reader $reader = null)
-    {
-        if ($reader == null) {
-            $reader = new AnnotationReader();
-        }
-        return new self($reader, $paths);
-    }
+	private function addIndex(ClassMetadataInfo $class, $index, array $keys = array())
+	{
+		$keys = array_merge($keys, $index->keys);
+		$options = array();
+		$allowed = array('name', 'dropDups', 'background', 'safe', 'unique', 'sparse', 'expireAfterSeconds');
+		foreach ($allowed as $name)
+		{
+			if (isset($index->$name))
+			{
+				$options[$name] = $index->$name;
+			}
+		}
+		$options = array_merge($options, $index->options);
+		$class->addIndex($keys, $options);
+	}
+
+	/**
+	 * Factory method for the Annotation Driver
+	 *
+	 * @param array|string $paths
+	 * @param Reader $reader
+	 * @return AnnotationDriver
+	 */
+	static public function create($paths = array(), Reader $reader = null)
+	{
+		if ($reader == null)
+		{
+			$reader = new AnnotationReader();
+		}
+		return new self($reader, $paths);
+	}
+
 }

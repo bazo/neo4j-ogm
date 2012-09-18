@@ -80,25 +80,6 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
     const MANY           = 'many';
     const ONE            = 'one';
 
-    /* The inheritance mapping types */
-    /**
-     * NONE means the class does not participate in an inheritance hierarchy
-     * and therefore does not need an inheritance mapping type.
-     */
-    const INHERITANCE_TYPE_NONE = 1;
-
-    /**
-     * SINGLE_COLLECTION means the class will be persisted according to the rules of
-     * <tt>Single Collection Inheritance</tt>.
-     */
-    const INHERITANCE_TYPE_SINGLE_COLLECTION = 2;
-
-    /**
-     * COLLECTION_PER_CLASS means the class will be persisted according to the rules
-     * of <tt>Concrete Collection Inheritance</tt>.
-     */
-    const INHERITANCE_TYPE_COLLECTION_PER_CLASS = 3;
-
     /**
      * DEFERRED_IMPLICIT means that changes of entities are calculated at commit-time
      * by doing a property-by-property comparison with the original data. This will
@@ -123,51 +104,9 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
     const CHANGETRACKING_NOTIFY = 3;
 
     /**
-     * READ-ONLY: The name of the mongo database the document is mapped to.
-     */
-    public $db;
-
-    /**
-     * READ-ONLY: The name of the mongo collection the document is mapped to.
-     */
-    public $collection;
-
-    /**
-     * READ-ONLY: If the collection should be a fixed size.
-     */
-    public $collectionCapped;
-
-    /**
-     * READ-ONLY: If the collection is fixed size, its size in bytes.
-     */
-    public $collectionSize;
-
-    /**
-     * READ-ONLY: If the collection is fixed size, the maximum number of elements to store in the collection.
-     */
-    public $collectionMax;
-
-    /**
      * READ-ONLY: The field name of the document identifier.
      */
     public $identifier;
-
-    /**
-     * READ-ONLY: The field that stores a file reference and indicates the
-     * document is a file and should be stored on the MongoGridFS.
-     */
-    public $file;
-
-    /**
-     * READ-ONLY: The field that stores the calculated distance when performing geo spatial
-     * queries.
-     */
-    public $distance;
-
-    /**
-     * READ-ONLY: Whether or not reads for this class are okay to read from a slave.
-     */
-    public $slaveOkay = false;
 
     /**
      * READ-ONLY: The array of indexes for the document collection.
@@ -231,13 +170,6 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
     public $reflFields = array();
 
     /**
-     * READ-ONLY: The inheritance mapping type used by the class.
-     *
-     * @var integer
-     */
-    public $inheritanceType = self::INHERITANCE_TYPE_NONE;
-
-    /**
      * READ-ONLY: The Id generator type used by the class.
      *
      * @var string
@@ -290,48 +222,25 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
     public $lifecycleCallbacks = array();
 
     /**
-     * READ-ONLY: The discriminator value of this class.
-     *
-     * <b>This does only apply to the JOINED and SINGLE_COLLECTION inheritance mapping strategies
-     * where a discriminator field is used.</b>
-     *
-     * @var mixed
-     * @see discriminatorField
-     */
-    public $discriminatorValue;
-
-    /**
-     * READ-ONLY: The discriminator map of all mapped classes in the hierarchy.
-     *
-     * <b>This does only apply to the SINGLE_COLLECTION inheritance mapping strategy
-     * where a discriminator field is used.</b>
-     *
-     * @var mixed
-     * @see discriminatorField
-     */
-    public $discriminatorMap = array();
-
-    /**
-     * READ-ONLY: The definition of the discriminator field used in SINGLE_COLLECTION
-     * inheritance mapping.
-     *
-     * @var string
-     */
-    public $discriminatorField;
-
-    /**
      * READ-ONLY: Whether this class describes the mapping of a mapped superclass.
      *
      * @var boolean
      */
     public $isMappedSuperclass = false;
-
-    /**
-     * READ-ONLY: Whether this class describes the mapping of a embedded document.
+	
+	/**
+     * READ-ONLY: Whether this class describes the mapping of a node
      *
      * @var boolean
      */
-    public $isEmbeddedDocument = false;
+    public $isNode = false;
+
+	/**
+     * READ-ONLY: Whether this class describes a relationships
+     *
+     * @var boolean
+     */
+    public $isRelationship = false;
 
     /**
      * READ-ONLY: The policy used for change-tracking on entities of this class.
@@ -760,176 +669,6 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
     }
 
     /**
-     * Returns the database this Document is mapped to.
-     *
-     * @return string $db The database name.
-     */
-    public function getDatabase()
-    {
-        return $this->db;
-    }
-
-    /**
-     * Set the database this Document is mapped to.
-     *
-     * @param string $db The database name
-     */
-    public function setDatabase($db)
-    {
-        $this->db = $db;
-    }
-
-    /**
-     * Get the collection this Document is mapped to.
-     *
-     * @return string $collection The collection name.
-     */
-    public function getCollection()
-    {
-        return $this->collection;
-    }
-
-    /**
-     * Sets the collection this Document is mapped to.
-     *
-     * @param string $collection The collection name.
-     */
-    public function setCollection($name)
-    {
-        if (is_array($name)) {
-            if ( ! isset($name['name'])) {
-                throw new \InvalidArgumentException('A name key is required when passing an array to setCollection()');
-            }
-            $this->collectionCapped = isset($name['capped']) ? $name['capped'] : false;
-            $this->collectionSize = isset($name['size']) ? $name['size'] : 0;
-            $this->collectionMax = isset($name['max']) ? $name['max'] : 0;
-            $this->collection = $name['name'];
-        } else {
-            $this->collection = $name;
-        }
-    }
-
-    /**
-     * Get whether or not the documents collection is capped.
-     *
-     * @return boolean
-     */
-    public function getCollectionCapped()
-    {
-        return $this->collectionCapped;
-    }
-
-    /**
-     * Set whether or not the documents collection is capped.
-     *
-     * @param boolean $bool
-     */
-    public function setCollectionCapped($bool)
-    {
-        $this->collectionCapped = $bool;
-    }
-
-    /**
-     * Get the collection size
-     *
-     * @return integer
-     */
-    public function getCollectionSize()
-    {
-        return $this->collectionSize;
-    }
-
-    /**
-     * Set the collection size.
-     *
-     * @param integer $size
-     */
-    public function setCollectionSize($size)
-    {
-        $this->collectionSize = $size;
-    }
-
-    /**
-     * Get the collection max.
-     *
-     * @return integer
-     */
-    public function getCollectionMax()
-    {
-        return $this->collectionMax;
-    }
-
-    /**
-     * Set the collection max.
-     *
-     * @param integer $max
-     */
-    public function setCollectionMax($max)
-    {
-        $this->collectionMax = $max;
-    }
-
-    /**
-     * Returns TRUE if this Document is mapped to a collection FALSE otherwise.
-     *
-     * @return boolean
-     */
-    public function isMappedToCollection()
-    {
-        return $this->collection ? true : false;
-    }
-
-    /**
-     * Returns TRUE if this Document is a file to be stored on the MongoGridFS FALSE otherwise.
-     *
-     * @return boolean
-     */
-    public function isFile()
-    {
-        return $this->file ? true :false;
-    }
-
-    /**
-     * Returns the file field name.
-     *
-     * @return string $file The file field name.
-     */
-    public function getFile()
-    {
-        return $this->file;
-    }
-
-    /**
-     * Set the field name that stores the grid file.
-     *
-     * @param string $file
-     */
-    public function setFile($file)
-    {
-        $this->file = $file;
-    }
-
-    /**
-     * Returns the distance field name.
-     *
-     * @return string $distance The distance field name.
-     */
-    public function getDistance()
-    {
-        return $this->distance;
-    }
-
-    /**
-     * Set the field name that stores the distance.
-     *
-     * @param string $distance
-     */
-    public function setDistance($distance)
-    {
-        $this->distance = $distance;
-    }
-
-    /**
      * Map a field.
      *
      * @param array $mapping The mapping information.
@@ -948,19 +687,8 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
         if (isset($this->fieldMappings[$mapping['fieldName']])) {
             throw MappingException::duplicateFieldMapping($this->name, $mapping['fieldName']);
         }
-        if ($this->discriminatorField['name'] === $mapping['fieldName']) {
-            throw MappingException::duplicateFieldMapping($this->name, $mapping['fieldName']);
-        }
         if (isset($mapping['targetDocument']) && strpos($mapping['targetDocument'], '\\') === false && strlen($this->namespace)) {
             $mapping['targetDocument'] = $this->namespace . '\\' . $mapping['targetDocument'];
-        }
-
-        if (isset($mapping['discriminatorMap'])) {
-            foreach ($mapping['discriminatorMap'] as $key => $class) {
-                if (strpos($class, '\\') === false && strlen($this->namespace)) {
-                    $mapping['discriminatorMap'][$key] = $this->namespace . '\\' . $class;
-                }
-            }
         }
 
         if (isset($mapping['cascade']) && is_string($mapping['cascade'])) {
@@ -984,13 +712,6 @@ class ClassMetadataInfo implements \Doctrine\Common\Persistence\Mapping\ClassMet
             }
         }
         unset($mapping['cascade']);
-        if (isset($mapping['file']) && $mapping['file'] === true) {
-            $this->file = $mapping['fieldName'];
-            $mapping['name'] = 'file';
-        }
-        if (isset($mapping['distance']) && $mapping['distance'] === true) {
-            $this->distance = $mapping['fieldName'];
-        }
         if (isset($mapping['id']) && $mapping['id'] === true) {
             $mapping['name'] = '_id';
             $mapping['type'] = isset($mapping['type']) ? $mapping['type'] : 'id';
