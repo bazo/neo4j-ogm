@@ -49,25 +49,25 @@ use OGM\Neo4j\Hydrator\HydratorFactory;
 class UnitOfWork implements PropertyChangedListener
 {
     /**
-     * An document is in MANAGED state when its persistence is managed by an NodeManager.
+     * An document is in MANAGED state when its persistence is managed by an GraphManager.
      */
     const STATE_MANAGED = 1;
 
     /**
      * An document is new if it has just been instantiated (i.e. using the "new" operator)
-     * and is not (yet) managed by an NodeManager.
+     * and is not (yet) managed by an GraphManager.
      */
     const STATE_NEW = 2;
 
     /**
      * A detached document is an instance with a persistent identity that is not
-     * (or no longer) associated with an NodeManager (and a UnitOfWork).
+     * (or no longer) associated with an GraphManager (and a UnitOfWork).
      */
     const STATE_DETACHED = 3;
 
     /**
      * A removed document instance is an instance with a persistent identity,
-     * associated with an NodeManager, whose persistent state has been
+     * associated with an GraphManager, whose persistent state has been
      * deleted (or is scheduled for deletion).
      */
     const STATE_REMOVED = 4;
@@ -187,11 +187,11 @@ class UnitOfWork implements PropertyChangedListener
     private $visitedCollections = array();
 
     /**
-     * The NodeManager that "owns" this UnitOfWork instance.
+     * The GraphManager that "owns" this UnitOfWork instance.
      *
-     * @var OGM\Neo4j\NodeManager
+     * @var OGM\Neo4j\GraphManager
      */
-    private $nm;
+    private $gm;
 
     /**
      * The calculator used to calculate the order in which changes to
@@ -252,15 +252,15 @@ class UnitOfWork implements PropertyChangedListener
     private $parentAssociations = array();
 
     /**
-     * Initializes a new UnitOfWork instance, bound to the given NodeManager.
+     * Initializes a new UnitOfWork instance, bound to the given GraphManager.
      *
-     * @param OGM\Neo4j\NodeManager $nm
+     * @param OGM\Neo4j\GraphManager $gm
      * @param Doctrine\Common\EventManager $evm
      * @param OGM\Neo4j\Hydrator\HydratorFactory $hydratorFactory
      */
-    public function __construct(NodeManager $nm, EventManager $evm, HydratorFactory $hydratorFactory)
+    public function __construct(GraphManager $gm, EventManager $evm, HydratorFactory $hydratorFactory)
     {
-        $this->nm = $nm;
+        $this->gm = $gm;
         $this->evm = $evm;
         $this->hydratorFactory = $hydratorFactory;
     }
@@ -274,7 +274,7 @@ class UnitOfWork implements PropertyChangedListener
     public function getPersistenceBuilder()
     {
         if (!$this->persistenceBuilder) {
-            $this->persistenceBuilder = new PersistenceBuilder($this->nm, $this);
+            $this->persistenceBuilder = new PersistenceBuilder($this->gm, $this);
         }
         return $this->persistenceBuilder;
     }
@@ -321,9 +321,9 @@ class UnitOfWork implements PropertyChangedListener
     public function getNodePersister($documentName)
     {
         if ( ! isset($this->persisters[$documentName])) {
-            $class = $this->nm->getClassMetadata($documentName);
+            $class = $this->gm->getClassMetadata($documentName);
             $pb = $this->getPersistenceBuilder();
-            $this->persisters[$documentName] = new Persisters\NodePersister($pb, $this->nm, $this->evm, $this, $this->hydratorFactory, $class);
+            $this->persisters[$documentName] = new Persisters\NodePersister($pb, $this->gm, $this->evm, $this, $this->hydratorFactory, $class);
         }
         return $this->persisters[$documentName];
     }
@@ -338,7 +338,7 @@ class UnitOfWork implements PropertyChangedListener
     {
         if ( ! isset($this->collectionPersister)) {
             $pb = $this->getPersistenceBuilder();
-            $this->collectionPersister = new Persisters\CollectionPersister($this->nm, $pb, $this);
+            $this->collectionPersister = new Persisters\CollectionPersister($this->gm, $pb, $this);
         }
         return $this->collectionPersister;
     }
@@ -372,10 +372,10 @@ class UnitOfWork implements PropertyChangedListener
     {
         // Raise preFlush
         if ($this->evm->hasListeners(Events::preFlush)) {
-            $this->evm->dispatchEvent(Events::preFlush, new Event\PreFlushEventArgs($this->nm));
+            $this->evm->dispatchEvent(Events::preFlush, new Event\PreFlushEventArgs($this->gm));
         }
 
-        $defaultOptions = $this->nm->getConfiguration()->getDefaultCommitOptions();
+        $defaultOptions = $this->gm->getConfiguration()->getDefaultCommitOptions();
         if ($options) {
             $options = array_merge($defaultOptions, $options);
         } else {
@@ -410,7 +410,7 @@ class UnitOfWork implements PropertyChangedListener
 
         // Raise onFlush
         if ($this->evm->hasListeners(Events::onFlush)) {
-            $this->evm->dispatchEvent(Events::onFlush, new Event\OnFlushEventArgs($this->nm));
+            $this->evm->dispatchEvent(Events::onFlush, new Event\OnFlushEventArgs($this->gm));
         }
 
         // Now we need a commit order to maintain referential integrity
@@ -461,7 +461,7 @@ class UnitOfWork implements PropertyChangedListener
 
         // Raise postFlush
         if ($this->evm->hasListeners(Events::postFlush)) {
-            $this->evm->dispatchEvent(Events::postFlush, new Event\PostFlushEventArgs($this->nm));
+            $this->evm->dispatchEvent(Events::postFlush, new Event\PostFlushEventArgs($this->gm));
         }
 
         // Clear up
@@ -486,7 +486,7 @@ class UnitOfWork implements PropertyChangedListener
     private function computeScheduleInsertsChangeSets()
     {
         foreach ($this->documentInsertions as $document) {
-            $class = $this->nm->getClassMetadata(get_class($document));
+            $class = $this->gm->getClassMetadata(get_class($document));
 
             $this->computeChangeSet($class, $document);
         }
@@ -508,7 +508,7 @@ class UnitOfWork implements PropertyChangedListener
             throw new \InvalidArgumentException("Node has to be managed for single computation " . self::objToStr($document));
         }
 
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
 
         if ($class->isChangeTrackingDeferredImplicit()) {
             $this->persist($document);
@@ -564,7 +564,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function getNodeActualData($document)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         $actualData = array();
         foreach ($class->reflFields as $name => $refProp) {
             $mapping = $class->fieldMappings[$name];
@@ -585,7 +585,7 @@ class UnitOfWork implements PropertyChangedListener
                 }
 
                 // Inject PersistentCollection
-                $coll = new PersistentCollection($value, $this->nm, $this);
+                $coll = new PersistentCollection($value, $this->gm, $this);
                 $coll->setOwner($document, $mapping);
                 $coll->setDirty( ! $value->isEmpty());
                 $class->reflFields[$name]->setValue($document, $coll);
@@ -624,7 +624,7 @@ class UnitOfWork implements PropertyChangedListener
     public function computeChangeSet(ClassMetadata $class, $document)
     {
         if ( ! $class->isInheritanceTypeNone()) {
-            $class = $this->nm->getClassMetadata(get_class($document));
+            $class = $this->gm->getClassMetadata(get_class($document));
         }
 
         // Fire PreFlush lifecycle callbacks
@@ -798,7 +798,7 @@ class UnitOfWork implements PropertyChangedListener
 
         // Compute changes for other MANAGED documents. Change tracking policies take effect here.
         foreach ($this->identityMap as $className => $documents) {
-            $class = $this->nm->getClassMetadata($className);
+            $class = $this->gm->getClassMetadata($className);
             if($class->isEmbeddedNode) {
                 // Embedded documents should only compute by the document itself which include the embedded document.
                 // This is done separately later.
@@ -838,7 +838,7 @@ class UnitOfWork implements PropertyChangedListener
     private function computeAssociationChanges($parentNode, $mapping, $value)
     {
         $isNewParentNode = isset($this->documentInsertions[spl_object_hash($parentNode)]);
-        $class = $this->nm->getClassMetadata(get_class($parentNode));
+        $class = $this->gm->getClassMetadata(get_class($parentNode));
         $topOrExistingNode = (!$isNewParentNode || !$class->isEmbeddedNode);
 
         if ($value instanceof PersistentCollection && $value->isDirty() && $mapping['isOwningSide'] && ($topOrExistingNode || $mapping['strategy'] === 'set')) {
@@ -864,7 +864,7 @@ class UnitOfWork implements PropertyChangedListener
         }
         $count = 0;
         foreach ($value as $key => $entry) {
-            $targetClass = $this->nm->getClassMetadata(get_class($entry));
+            $targetClass = $this->gm->getClassMetadata(get_class($entry));
             $state = $this->getNodeState($entry, self::STATE_NEW);
             $oid = spl_object_hash($entry);
 
@@ -921,7 +921,7 @@ class UnitOfWork implements PropertyChangedListener
         }
 
         if ( ! $class->isInheritanceTypeNone()) {
-            $class = $this->nm->getClassMetadata(get_class($document));
+            $class = $this->gm->getClassMetadata(get_class($document));
         }
 
         $this->computeOrRecomputeChangeSet($class, $document, true);
@@ -934,7 +934,7 @@ class UnitOfWork implements PropertyChangedListener
             $class->invokeLifecycleCallbacks(Events::prePersist, $document);
         }
         if ($this->evm->hasListeners(Events::prePersist)) {
-            $this->evm->dispatchEvent(Events::prePersist, new LifecycleEventArgs($document, $this->nm));
+            $this->evm->dispatchEvent(Events::prePersist, new LifecycleEventArgs($document, $this->gm));
         }
 
         $this->documentStates[$oid] = self::STATE_MANAGED;
@@ -952,7 +952,7 @@ class UnitOfWork implements PropertyChangedListener
     {
         $className = $class->name;
         $persister = $this->getNodePersister($className);
-        $collection = $this->nm->getNodeCollection($className);
+        $collection = $this->gm->getNodeCollection($className);
 
         $hasLifecycleCallbacks = isset($class->lifecycleCallbacks[Events::postPersist]);
         $hasListeners = $this->evm->hasListeners(Events::postPersist);
@@ -988,7 +988,7 @@ class UnitOfWork implements PropertyChangedListener
                         $class->invokeLifecycleCallbacks(Events::postPersist, $document);
                     }
                     if ($hasListeners) {
-                        $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($document, $this->nm));
+                        $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($document, $this->gm));
                     }
                 }
                 $this->cascadePostPersist($class, $document);
@@ -1014,7 +1014,7 @@ class UnitOfWork implements PropertyChangedListener
                     $value = array($value);
                 }
                 foreach ($value as $entry) {
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     $hasLifecycleCallbacks = isset($entryClass->lifecycleCallbacks[Events::postPersist]);
                     $hasListeners = $this->evm->hasListeners(Events::postPersist);
                     if ($hasLifecycleCallbacks || $hasListeners) {
@@ -1022,7 +1022,7 @@ class UnitOfWork implements PropertyChangedListener
                             $entryClass->invokeLifecycleCallbacks(Events::postPersist, $entry);
                         }
                         if ($hasListeners) {
-                            $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($entry, $this->nm));
+                            $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($entry, $this->gm));
                         }
                     }
                     $this->cascadePostPersist($entryClass, $entry);
@@ -1057,7 +1057,7 @@ class UnitOfWork implements PropertyChangedListener
 
                     if ($hasPreUpdateListeners && isset($this->documentChangeSets[$oid])) {
                         $this->evm->dispatchEvent(Events::preUpdate, new Event\PreUpdateEventArgs(
-                            $document, $this->nm, $this->documentChangeSets[$oid])
+                            $document, $this->gm, $this->documentChangeSets[$oid])
                         );
                     }
                     $this->cascadePreUpdate($class, $document);
@@ -1073,7 +1073,7 @@ class UnitOfWork implements PropertyChangedListener
                         $class->invokeLifecycleCallbacks(Events::postUpdate, $document);
                     }
                     if ($hasPostUpdateListeners) {
-                        $this->evm->dispatchEvent(Events::postUpdate, new LifecycleEventArgs($document, $this->nm));
+                        $this->evm->dispatchEvent(Events::postUpdate, new LifecycleEventArgs($document, $this->gm));
                     }
                     $this->cascadePostUpdateAndPostPersist($class, $document);
                 }
@@ -1100,7 +1100,7 @@ class UnitOfWork implements PropertyChangedListener
                 }
                 foreach ($value as $entry) {
                     $entryOid = spl_object_hash($entry);
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     if ( ! isset($this->documentChangeSets[$entryOid])) {
                         continue;
                     }
@@ -1111,7 +1111,7 @@ class UnitOfWork implements PropertyChangedListener
                         }
                         if ($this->evm->hasListeners(Events::preUpdate)) {
                             $this->evm->dispatchEvent(Events::preUpdate, new Event\PreUpdateEventArgs(
-                                $entry, $this->nm, $this->documentChangeSets[$entryOid])
+                                $entry, $this->gm, $this->documentChangeSets[$entryOid])
                             );
                         }
                     }
@@ -1140,7 +1140,7 @@ class UnitOfWork implements PropertyChangedListener
                 }
                 foreach ($value as $entry) {
                     $entryOid = spl_object_hash($entry);
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     if ( ! isset($this->documentChangeSets[$entryOid])) {
                         continue;
                     }
@@ -1149,7 +1149,7 @@ class UnitOfWork implements PropertyChangedListener
                             $entryClass->invokeLifecycleCallbacks(Events::postPersist, $entry);
                         }
                         if ($this->evm->hasListeners(Events::postPersist)) {
-                            $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($entry, $this->nm));
+                            $this->evm->dispatchEvent(Events::postPersist, new LifecycleEventArgs($entry, $this->gm));
                         }
                     } else {
                         if (isset($entryClass->lifecycleCallbacks[Events::postUpdate])) {
@@ -1157,7 +1157,7 @@ class UnitOfWork implements PropertyChangedListener
                             $this->recomputeSingleNodeChangeSet($entryClass, $entry);
                         }
                         if ($this->evm->hasListeners(Events::postUpdate)) {
-                            $this->evm->dispatchEvent(Events::postUpdate, new LifecycleEventArgs($entry, $this->nm));
+                            $this->evm->dispatchEvent(Events::postUpdate, new LifecycleEventArgs($entry, $this->gm));
                         }
                     }
                     $this->cascadePostUpdateAndPostPersist($entryClass, $entry);
@@ -1179,7 +1179,7 @@ class UnitOfWork implements PropertyChangedListener
 
         $className = $class->name;
         $persister = $this->getNodePersister($className);
-        $collection = $this->nm->getNodeCollection($className);
+        $collection = $this->gm->getNodeCollection($className);
         foreach ($this->documentDeletions as $oid => $document) {
             if (get_class($document) == $className || $document instanceof Proxy && $document instanceof $className) {
                 if ( ! $class->isEmbeddedNode) {
@@ -1210,7 +1210,7 @@ class UnitOfWork implements PropertyChangedListener
                     $class->invokeLifecycleCallbacks(Events::postRemove, $document);
                 }
                 if ($hasListeners) {
-                    $this->evm->dispatchEvent(Events::postRemove, new LifecycleEventArgs($document, $this->nm));
+                    $this->evm->dispatchEvent(Events::postRemove, new LifecycleEventArgs($document, $this->gm));
                 }
                 $this->cascadePostRemove($class, $document);
             }
@@ -1249,7 +1249,7 @@ class UnitOfWork implements PropertyChangedListener
                 continue;
             }
 
-            $class = $this->nm->getClassMetadata($className);
+            $class = $this->gm->getClassMetadata($className);
             $calc->addClass($class);
 
             $newNodes[] = $class;
@@ -1278,7 +1278,7 @@ class UnitOfWork implements PropertyChangedListener
                 continue;
             }
 
-            $targetClass = $this->nm->getClassMetadata($mapping['targetNode']);
+            $targetClass = $this->gm->getClassMetadata($mapping['targetNode']);
 
             if ( ! $calc->hasClass($targetClass->name)) {
                 $calc->addClass($targetClass);
@@ -1292,7 +1292,7 @@ class UnitOfWork implements PropertyChangedListener
             }
 
             foreach ($targetClass->subClasses as $subClassName) {
-                $targetSubClass = $this->nm->getClassMetadata($subClassName);
+                $targetSubClass = $this->gm->getClassMetadata($subClassName);
 
                 if ( ! $calc->hasClass($subClassName)) {
                     $calc->addClass($targetSubClass);
@@ -1421,7 +1421,7 @@ class UnitOfWork implements PropertyChangedListener
 
     public function isScheduledForDirtyCheck($document)
     {
-        $rootNodeName = $this->nm->getClassMetadata(get_class($document))->rootNodeName;
+        $rootNodeName = $this->gm->getClassMetadata(get_class($document))->rootNodeName;
         return isset($this->scheduledForDirtyCheck[$rootNodeName][spl_object_hash($document)]);
     }
 
@@ -1497,7 +1497,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function addToIdentityMap($document)
     {
-        $classMetadata = $this->nm->getClassMetadata(get_class($document));
+        $classMetadata = $this->gm->getClassMetadata(get_class($document));
         if ($classMetadata->isEmbeddedNode) {
             $id = spl_object_hash($document);
         } else {
@@ -1535,7 +1535,7 @@ class UnitOfWork implements PropertyChangedListener
     {
         $oid = spl_object_hash($document);
         if ( ! isset($this->documentStates[$oid])) {
-            $class = $this->nm->getClassMetadata(get_class($document));
+            $class = $this->gm->getClassMetadata(get_class($document));
             if ($class->isEmbeddedNode) {
                 return self::STATE_NEW;
             }
@@ -1588,7 +1588,7 @@ class UnitOfWork implements PropertyChangedListener
     public function removeFromIdentityMap($document)
     {
         $oid = spl_object_hash($document);
-        $classMetadata = $this->nm->getClassMetadata(get_class($document));
+        $classMetadata = $this->gm->getClassMetadata(get_class($document));
         
         // Check if id is registered first
         if (!isset($this->documentIdentifiers[$oid])) {
@@ -1650,7 +1650,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function scheduleForDirtyCheck($document)
     {
-        $rootClassName = $this->nm->getClassMetadata(get_class($document))->rootNodeName;
+        $rootClassName = $this->gm->getClassMetadata(get_class($document))->rootNodeName;
         $this->scheduledForDirtyCheck[$rootClassName][spl_object_hash($document)] = $document;
     }
 
@@ -1666,7 +1666,7 @@ class UnitOfWork implements PropertyChangedListener
         if ( ! isset($this->documentIdentifiers[$oid])) {
             return false;
         }
-        $classMetadata = $this->nm->getClassMetadata(get_class($document));
+        $classMetadata = $this->gm->getClassMetadata(get_class($document));
         $id = $this->documentIdentifiers[$oid];
         if ( ! $classMetadata->isEmbeddedNode) {
             $id = $classMetadata->getPHPIdentifierValue($id);
@@ -1699,7 +1699,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function persist($document)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         if ($class->isMappedSuperclass) {
             throw MongoDBException::cannotPersistMappedSuperclass($class->name);
         }
@@ -1727,7 +1727,7 @@ class UnitOfWork implements PropertyChangedListener
 
         $visited[$oid] = $document; // Mark visited
 
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
 
         $documentState = $this->getNodeState($document, self::STATE_NEW);
         switch ($documentState) {
@@ -1791,7 +1791,7 @@ class UnitOfWork implements PropertyChangedListener
 
         $visited[$oid] = $document; // mark visited
 
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         $documentState = $this->getNodeState($document);
         switch ($documentState) {
             case self::STATE_NEW:
@@ -1803,7 +1803,7 @@ class UnitOfWork implements PropertyChangedListener
                     $class->invokeLifecycleCallbacks(Events::preRemove, $document);
                 }
                 if ($this->evm->hasListeners(Events::preRemove)) {
-                    $this->evm->dispatchEvent(Events::preRemove, new LifecycleEventArgs($document, $this->nm));
+                    $this->evm->dispatchEvent(Events::preRemove, new LifecycleEventArgs($document, $this->gm));
                 }
                 $this->scheduleForDelete($document);
                 $this->cascadePreRemove($class, $document);
@@ -1835,12 +1835,12 @@ class UnitOfWork implements PropertyChangedListener
                     $value = array($value);
                 }
                 foreach ($value as $entry) {
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     if (isset($entryClass->lifecycleCallbacks[Events::preRemove])) {
                         $entryClass->invokeLifecycleCallbacks(Events::preRemove, $entry);
                     }
                     if ($this->evm->hasListeners(Events::preRemove)) {
-                        $this->evm->dispatchEvent(Events::preRemove, new LifecycleEventArgs($entry, $this->nm));
+                        $this->evm->dispatchEvent(Events::preRemove, new LifecycleEventArgs($entry, $this->gm));
                     }
                     $this->cascadePreRemove($entryClass, $entry);
                 }
@@ -1866,12 +1866,12 @@ class UnitOfWork implements PropertyChangedListener
                     $value = array($value);
                 }
                 foreach ($value as $entry) {
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     if (isset($entryClass->lifecycleCallbacks[Events::postRemove])) {
                         $entryClass->invokeLifecycleCallbacks(Events::postRemove, $entry);
                     }
                     if ($this->evm->hasListeners(Events::postRemove)) {
-                        $this->evm->dispatchEvent(Events::postRemove, new LifecycleEventArgs($entry, $this->nm));
+                        $this->evm->dispatchEvent(Events::postRemove, new LifecycleEventArgs($entry, $this->gm));
                     }
                     $this->cascadePostRemove($entryClass, $entry);
                 }
@@ -1908,7 +1908,7 @@ class UnitOfWork implements PropertyChangedListener
 
         $visited[$oid] = $document; // mark visited
 
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
 
         // First we assume DETACHED, although it can still be NEW but we can avoid
         // an extra db-roundtrip this way. If it is not MANAGED but has an identity,
@@ -1937,7 +1937,7 @@ class UnitOfWork implements PropertyChangedListener
                     }
                 } else {
                     // We need to fetch the managed copy in order to merge.
-                    $managedCopy = $this->nm->find($class->name, $id);
+                    $managedCopy = $this->gm->find($class->name, $id);
                 }
 
                 if ($managedCopy === null) {
@@ -1976,9 +1976,9 @@ class UnitOfWork implements PropertyChangedListener
                                 $prop->setValue($managedCopy, $other);
                             } else {
                                 $targetNode = isset($assoc2['targetNode']) ? $assoc2['targetNode'] : get_class($other);
-                                $targetClass = $this->nm->getClassMetadata($targetNode);
+                                $targetClass = $this->gm->getClassMetadata($targetNode);
                                 $id = $targetClass->getIdentifierValue($other);
-                                $proxy = $this->nm->getProxyFactory()->getProxy($targetNode, $id);
+                                $proxy = $this->gm->getProxyFactory()->getProxy($targetNode, $id);
                                 $prop->setValue($managedCopy, $proxy);
                                 $this->registerManaged($proxy, $id, array());
                             }
@@ -1993,7 +1993,7 @@ class UnitOfWork implements PropertyChangedListener
 
                         foreach ($mergeCol as $entry) {
                             $targetNode = isset($assoc2['targetNode']) ? $assoc2['targetNode'] : get_class($entry);
-                            $targetClass = $this->nm->getClassMetadata($targetNode);
+                            $targetClass = $this->gm->getClassMetadata($targetNode);
                             if ($targetClass->isEmbeddedNode) {
                                 $this->registerManaged($entry, null, array());
                             } else {
@@ -2006,10 +2006,10 @@ class UnitOfWork implements PropertyChangedListener
                             if ( ! $mergeCol instanceof Collection) {
                                 $mergeCol = new ArrayCollection($mergeCol);
                             }
-                            $mergeCol = new PersistentCollection($mergeCol, $this->nm, $this);
+                            $mergeCol = new PersistentCollection($mergeCol, $this->gm, $this);
                             $mergeCol->setInitialized(true);
                         } else {
-                            $mergeCol->setNodeManager($this->nm);
+                            $mergeCol->setGraphManager($this->gm);
                         }
                         $mergeCol->setOwner($managedCopy, $assoc2);
                         $mergeCol->setDirty(true); // mark for dirty checking
@@ -2028,7 +2028,7 @@ class UnitOfWork implements PropertyChangedListener
 
         if ($prevManagedCopy !== null) {
             $assocField = $assoc->sourceFieldName;
-            $prevClass = $this->nm->getClassMetadata(get_class($prevManagedCopy));
+            $prevClass = $this->gm->getClassMetadata(get_class($prevManagedCopy));
             if ($assoc->isOneToOne()) {
                 $prevClass->reflFields[$assocField]->setValue($prevManagedCopy, $managedCopy);
             } else {
@@ -2119,7 +2119,7 @@ class UnitOfWork implements PropertyChangedListener
 
         $visited[$oid] = $document; // mark visited
 
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         if ($this->getNodeState($document) == self::STATE_MANAGED) {
             $id = $class->getDatabaseIdentifierValue($this->documentIdentifiers[$oid]);
             $this->getNodePersister($class->name)->refresh($id, $document);
@@ -2138,7 +2138,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     private function cascadeRefresh($document, array &$visited)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         foreach ($class->fieldMappings as $mapping) {
             if (isset($mapping['reference']) && ! $mapping['isCascadeRefresh']) {
                 continue;
@@ -2181,7 +2181,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     private function cascadeDetach($document, array &$visited)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         foreach ($class->fieldMappings as $mapping) {
             if ( ! isset($mapping['embedded']) && ! $mapping['isCascadeDetach']) {
                 continue;
@@ -2225,7 +2225,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     private function cascadeMerge($document, $managedCopy, array &$visited)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         foreach ($class->fieldMappings as $mapping) {
             if ( ! isset($mapping['embedded']) && ! $mapping['isCascadeMerge']) {
                 continue;
@@ -2256,7 +2256,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     private function cascadePersist($document, array &$visited)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         foreach ($class->fieldMappings as $mapping) {
             if ( ! isset($mapping['embedded']) && ! $mapping['isCascadePersist']) {
                 continue;
@@ -2286,7 +2286,7 @@ class UnitOfWork implements PropertyChangedListener
      */
     private function cascadeRemove($document, array &$visited)
     {
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
         foreach ($class->fieldMappings as $mapping) {
             if ( ! isset($mapping['embedded']) && ! $mapping['isCascadeRemove']) {
                 continue;
@@ -2329,7 +2329,7 @@ class UnitOfWork implements PropertyChangedListener
         }
 
         $documentName = get_class($document);
-        $class = $this->nm->getClassMetadata($documentName);
+        $class = $this->gm->getClassMetadata($documentName);
 
         if ($lockMode == \OGM\Neo4j\LockMode::OPTIMISTIC) {
             if (!$class->isVersioned) {
@@ -2412,7 +2412,7 @@ class UnitOfWork implements PropertyChangedListener
         }
 
         if ($this->evm->hasListeners(Events::onClear)) {
-            $this->evm->dispatchEvent(Events::onClear, new Event\OnClearEventArgs($this->nm, $documentName));
+            $this->evm->dispatchEvent(Events::onClear, new Event\OnClearEventArgs($this->gm, $documentName));
         }
     }
 
@@ -2461,13 +2461,13 @@ class UnitOfWork implements PropertyChangedListener
      */
     public function getOrCreateNode($className, $data, &$hints = array())
     {
-        $class = $this->nm->getClassMetadata($className);
+        $class = $this->gm->getClassMetadata($className);
 
         // @TODO figure out how to remove this
         if ($class->discriminatorField) {
             if (isset($data[$class->discriminatorField['name']])) {
                 $type = $data[$class->discriminatorField['name']];
-                $class = $this->nm->getClassMetadata($class->discriminatorMap[$data[$class->discriminatorField['name']]]);
+                $class = $this->gm->getClassMetadata($class->discriminatorMap[$data[$class->discriminatorField['name']]]);
                 unset($data[$class->discriminatorField['name']]);
             }
         }
@@ -2520,13 +2520,13 @@ class UnitOfWork implements PropertyChangedListener
                     $value = array($value);
                 }
                 foreach ($value as $entry) {
-                    $entryClass = $this->nm->getClassMetadata(get_class($entry));
+                    $entryClass = $this->gm->getClassMetadata(get_class($entry));
                     if (isset($entryClass->lifecycleCallbacks[Events::preLoad])) {
                         $args = array(&$data);
                         $entryClass->invokeLifecycleCallbacks(Events::preLoad, $entry, $args);
                     }
                     if ($this->evm->hasListeners(Events::preLoad)) {
-                        $this->evm->dispatchEvent(Events::preLoad, new PreLoadEventArgs($entry, $this->nm, $data[$mapping['name']]));
+                        $this->evm->dispatchEvent(Events::preLoad, new PreLoadEventArgs($entry, $this->gm, $data[$mapping['name']]));
                     }
                     $this->cascadePreLoad($entryClass, $entry, $data[$mapping['name']]);
                 }
@@ -2677,7 +2677,7 @@ class UnitOfWork implements PropertyChangedListener
     public function propertyChanged($document, $propertyName, $oldValue, $newValue)
     {
         $oid = spl_object_hash($document);
-        $class = $this->nm->getClassMetadata(get_class($document));
+        $class = $this->gm->getClassMetadata(get_class($document));
 
         if ( ! isset($class->fieldMappings[$propertyName])) {
             return; // ignore non-persistent fields

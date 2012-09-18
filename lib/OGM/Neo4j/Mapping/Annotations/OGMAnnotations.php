@@ -43,6 +43,7 @@ require_once __DIR__ . '/PreLoad.php';
 require_once __DIR__ . '/PrePersist.php';
 require_once __DIR__ . '/PreRemove.php';
 require_once __DIR__ . '/PreUpdate.php';
+require_once __DIR__ . '/Relationship.php';
 require_once __DIR__ . '/String.php';
 require_once __DIR__ . '/Timestamp.php';
 require_once __DIR__ . '/UniqueIndex.php';

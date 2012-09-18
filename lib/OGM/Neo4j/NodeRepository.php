@@ -23,11 +23,11 @@ namespace OGM\Neo4j;
 use Doctrine\Common\Persistence\ObjectRepository;
 
 /**
- * An DocumentRepository serves as a repository for documents with generic as well as
- * business specific methods for retrieving documents.
+ * An NodeRepository serves as a repository for nodes with generic as well as
+ * business specific methods for retrieving nodes.
  *
  * This class is designed for inheritance and users can subclass this class to
- * write their own repositories with business-specific methods to locate documents.
+ * write their own repositories with business-specific methods to locate nodes.
  *
  * @license     http://www.opensource.org/licenses/lgpl-license.php LGPL
  * @link        www.doctrine-project.com
@@ -35,17 +35,17 @@ use Doctrine\Common\Persistence\ObjectRepository;
  * @author      Jonathan H. Wage <jonwage@gmail.com>
  * @author      Roman Borschel <roman@code-factory.org>
  */
-class DocumentRepository implements ObjectRepository
+class NodeRepository implements ObjectRepository
 {
     /**
      * @var string
      */
-    protected $documentName;
+    protected $nodeName;
 
     /**
-     * @var DocumentManager
+     * @var NodeManager
      */
-    protected $dm;
+    protected $gm;
 
     /**
      * @var UnitOfWork
@@ -58,46 +58,46 @@ class DocumentRepository implements ObjectRepository
     protected $class;
 
     /**
-     * Initializes a new <tt>DocumentRepository</tt>.
+     * Initializes a new <tt>NodeRepository</tt>.
      *
-     * @param DocumentManager $dm The DocumentManager to use.
+     * @param NodeManager $gm The NodeManager to use.
      * @param UnitOfWork $uow The UnitOfWork to use.
      * @param ClassMetadata $classMetadata The class descriptor.
      */
-    public function __construct(DocumentManager $dm, UnitOfWork $uow, Mapping\ClassMetadata $class)
+    public function __construct(NodeManager $gm, UnitOfWork $uow, Mapping\ClassMetadata $class)
     {
-        $this->documentName = $class->name;
-        $this->dm           = $dm;
+        $this->nodeName = $class->name;
+        $this->gm           = $gm;
         $this->uow          = $uow;
         $this->class        = $class;
     }
 
     /**
-     * Create a new Query\Builder instance that is prepopulated for this document name
+     * Create a new Query\Builder instance that is prepopulated for this node name
      *
      * @return Query\Builder $qb
      */
     public function createQueryBuilder()
     {
-        return $this->dm->createQueryBuilder($this->documentName);
+        return $this->gm->createQueryBuilder($this->nodeName);
     }
 
     /**
-     * Clears the repository, causing all managed documents to become detached.
+     * Clears the repository, causing all managed nodes to become detached.
      */
     public function clear()
     {
-        $this->dm->clear($this->class->rootDocumentName);
+        $this->gm->clear($this->class->rootNodeName);
     }
 
     /**
-     * Finds a document by its identifier
+     * Finds a node by its identifier
      *
      * @throws LockException
      * @param string|object $id The identifier
      * @param int $lockMode
      * @param int $lockVersion
-     * @return object The document.
+     * @return object The node.
      */
     public function find($id, $lockMode = LockMode::NONE, $lockVersion = null)
     {
@@ -108,39 +108,39 @@ class DocumentRepository implements ObjectRepository
             list($identifierFieldName) = $this->class->getIdentifierFieldNames();
 
             if (!isset($id[$identifierFieldName])) {
-                throw MongoDBException::missingIdentifierField($this->documentName, $identifierFieldName);
+                throw MongoDBException::missingIdentifierField($this->nodeName, $identifierFieldName);
             }
 
             $id = $id[$identifierFieldName];
         }
         
         // Check identity map first
-        if ($document = $this->uow->tryGetById($id, $this->class->rootDocumentName)) {
+        if ($node = $this->uow->tryGetById($id, $this->class->rootNodeName)) {
             if ($lockMode != LockMode::NONE) {
-                $this->dm->lock($document, $lockMode, $lockVersion);
+                $this->gm->lock($node, $lockMode, $lockVersion);
             }
 
-            return $document; // Hit!
+            return $node; // Hit!
         }
 
         if ($lockMode == LockMode::NONE) {
-            return $this->uow->getDocumentPersister($this->documentName)->load($id);
+            return $this->uow->getNodePersister($this->nodeName)->load($id);
         } else if ($lockMode == LockMode::OPTIMISTIC) {
             if (!$this->class->isVersioned) {
-                throw LockException::notVersioned($this->documentName);
+                throw LockException::notVersioned($this->nodeName);
             }
-            $document = $this->uow->getDocumentPersister($this->documentName)->load($id);
+            $node = $this->uow->getNodePersister($this->nodeName)->load($id);
 
-            $this->uow->lock($document, $lockMode, $lockVersion);
+            $this->uow->lock($node, $lockMode, $lockVersion);
 
-            return $document;
+            return $node;
         } else {
-            return $this->uow->getDocumentPersister($this->documentName)->load($id, null, array(), $lockMode);
+            return $this->uow->getNodePersister($this->nodeName)->load($id, null, array(), $lockMode);
         }
     }
 
     /**
-     * Finds all documents in the repository.
+     * Finds all nodes in the repository.
      *
      * @return array The entities.
      */
@@ -150,31 +150,31 @@ class DocumentRepository implements ObjectRepository
     }
 
     /**
-     * Finds documents by a set of criteria.
+     * Finds nodes by a set of criteria.
      *
      * @param array $criteria
      * @return array
      */
     public function findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
     {
-        return $this->uow->getDocumentPersister($this->documentName)->loadAll($criteria, $orderBy, $limit, $offset);
+        return $this->uow->getNodePersister($this->nodeName)->loadAll($criteria, $orderBy, $limit, $offset);
     }
 
     /**
-     * Finds a single document by a set of criteria.
+     * Finds a single node by a set of criteria.
      *
      * @param array $criteria
      * @return object
      */
     public function findOneBy(array $criteria)
     {
-        return $this->uow->getDocumentPersister($this->documentName)->load($criteria);
+        return $this->uow->getNodePersister($this->nodeName)->load($criteria);
     }
 
     /**
      * Adds support for magic finders.
      *
-     * @return array|object The found document/documents.
+     * @return array|object The found node/nodes.
      * @throws BadMethodCallException  If the method called is an invalid find* method
      *                                 or no find* method at all and therefore an invalid
      *                                 method call.
@@ -203,24 +203,24 @@ class DocumentRepository implements ObjectRepository
         if ($this->class->hasField($fieldName)) {
             return $this->$method(array($fieldName => $arguments[0]));
         } else {
-            throw MongoDBException::invalidFindByCall($this->documentName, $fieldName, $method.$by);
+            throw MongoDBException::invalidFindByCall($this->nodeName, $fieldName, $method.$by);
         }
     }
 
     /**
      * @return string
      */
-    public function getDocumentName()
+    public function getNodeName()
     {
-        return $this->documentName;
+        return $this->nodeName;
     }
 
     /**
-     * @return DocumentManager
+     * @return NodeManager
      */
-    public function getDocumentManager()
+    public function getNodeManager()
     {
-        return $this->dm;
+        return $this->gm;
     }
 
     /**
@@ -236,6 +236,6 @@ class DocumentRepository implements ObjectRepository
      */
     public function getClassName()
     {
-        return $this->getDocumentName();
+        return $this->getNodeName();
     }
 }

@@ -47,7 +47,7 @@ class Movie
     protected $category;
 
     /**
-     * @OGM\Data
+     * @OGM\Date
      */
     protected $releaseDate;
 
@@ -73,7 +73,7 @@ class Movie
     protected $cinemas;
 
     /**
-     * @OGM\Json
+     * @OGM\String
      */
     protected $blob;
 

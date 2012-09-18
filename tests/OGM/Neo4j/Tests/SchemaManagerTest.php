@@ -8,22 +8,51 @@ use Doctrine\Common\Annotations\AnnotationReader;
 
 class SchemaManagerTest extends \OGM\Neo4j\Tests\BaseTest
 {
+	/*
 	public function testDeleteDatabase()
 	{
-		$client = $this->nm->getClient();
+		$client = $this->gm->getClient();
 		
-		$client->delete('http://localhost:7474/db/data/cleandb/secret-key');
+		$path = '/cleandb/secret-key';
+		$response = $client->getTransport()->delete($path);
+		
+		if($response['code'] !== 200)
+		{
+			$this->markTestSkipped('Delete plugin probably not installed');
+		}
 	}
+	*/
 	
 	public function testGetReferenceNodeId()
 	{
-		$referenceNodeId = $this->nm->getSchemaManager()->getReferenceNode();
+		$referenceNode = $this->gm->getSchemaManager()->getReferenceNode();
 		
-		$this->assertEquals(0, $referenceNodeId);
+		$this->assertEquals(0, $referenceNode->getId());
 	}
 	
-	public function testCreateRootNode()
+	public function testCreateCollections()
 	{
+		$this->gm->getSchemaManager()->createCollections();
 		
+		$client = $this->gm->getClient();
+		
+		$collectionsIndex = new \Everyman\Neo4j\Index\NodeIndex($client, 'collections');
+		$nodes = $collectionsIndex->query('name:*');
+		
+		$nodeNames = array();
+		foreach ($nodes as $node)
+		{
+			$nodeNames[] = $node->name;
+		}
+		
+		$expectedNames = array(
+			'Nodes\Cinema',
+			'Nodes\Movie',
+			'Nodes\Person'
+		);
+
+		$this->assertEquals(3, count($nodes));
+		$this->assertEquals(3, count($expectedNames));
+		$this->assertEquals($expectedNames, $nodeNames);
 	}
 }

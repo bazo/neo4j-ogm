@@ -12,7 +12,7 @@ class MappingTest extends \OGM\Neo4j\Tests\BaseTest
 	 */
 	protected function loadDriver()
     {
-		AnnotationRegistry::registerAutoloadNamespace("OGM\Neo4j\Mapping\Annotations", __DIR__ . '/../../../../../lib/OGM/Neo4j/Mapping/Annotations/OGM/Annotations');
+		//AnnotationRegistry::registerAutoloadNamespace("OGM\Neo4j\Mapping\Annotations", __DIR__ . '/../../../../../lib/OGM/Neo4j/Mapping/Annotations/OGM/Annotations');
         $reader = new \Doctrine\Common\Annotations\AnnotationReader();
 		$annotationDriver = new \OGM\Neo4j\Mapping\Driver\AnnotationDriver($reader);
 		$annotationDriver->registerAnnotationClasses();

@@ -6,14 +6,15 @@ use Doctrine\Common\EventManager;
 use OGM\Neo4j\Hydrator\HydratorFactory;
 use OGM\Neo4j\Proxy\ProxyFactory;
 
-use Neoxygen\UpDown\UpDownClient as Client;
+//use Neoxygen\UpDown\UpDownClient as Client;
+use Everyman\Neo4j\Client as Client;
 
 /**
  * NodeManager
  *
  * @author Martin
  */
-class NodeManager implements ObjectManager
+class GraphManager implements ObjectManager
 {
 	
 	protected
@@ -39,7 +40,7 @@ class NodeManager implements ObjectManager
         $this->eventManager = $eventManager ?: new EventManager;
 
         $this->metadataFactory = new Mapping\ClassMetadataFactory;
-        $this->metadataFactory->setNodeManager($this);
+        $this->metadataFactory->setGraphManager($this);
         $this->metadataFactory->setConfiguration($this->config);
 		
         if ($cacheDriver = $this->config->getMetadataCacheImpl()) {
@@ -127,7 +128,7 @@ class NodeManager implements ObjectManager
     }
 	
 	/**
-	 * @return \Neoxygen\UpDown\UpDownClient
+	 * @return Client
 	 */
 	public function getClient()
 	{
@@ -256,7 +257,7 @@ class NodeManager implements ObjectManager
      */
     public function getClassMetadata($className)
 	{
-		
+		return $this->metadataFactory->getMetadataFor($className);
 	}
 
     /**

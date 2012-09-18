@@ -6,66 +6,71 @@ use OGM\Neo4j\NodeManager;
 use OGM\Neo4j\Configuration;
 use Doctrine\Common\Annotations\AnnotationReader;
 
+use Everyman\Neo4j\Client;
+
 class NodeManagerTest extends \OGM\Neo4j\Tests\BaseTest
 {
 	
 //    public function testCustomRepository()
 //    {
-//        $nm = $this->getDocumentManager();
-//        $this->assertInstanceOf('Documents\CustomRepository\Repository', $nm->getRepository('Documents\CustomRepository\Document'));
+//        $gm = $this->getDocumentManager();
+//        $this->assertInstanceOf('Documents\CustomRepository\Repository', $gm->getRepository('Documents\CustomRepository\Document'));
 //    }
 
     public function testGetMetadataFactory()
     {
-		$metaDataFactory = $this->nm->getMetadataFactory();
+		$metaDataFactory = $this->gm->getMetadataFactory();
         $this->assertInstanceOf('\OGM\Neo4j\Mapping\ClassMetadataFactory', $metaDataFactory);
     }
 
     public function testGetConfiguration()
     {
-        $this->assertInstanceOf('\OGM\Neo4j\Configuration', $this->nm->getConfiguration());
+        $this->assertInstanceOf('\OGM\Neo4j\Configuration', $this->gm->getConfiguration());
     }
 
     public function testGetUnitOfWork()
     {
-        $this->assertInstanceOf('\OGM\Neo4j\UnitOfWork', $this->nm->getUnitOfWork());
+        $this->assertInstanceOf('\OGM\Neo4j\UnitOfWork', $this->gm->getUnitOfWork());
     }
 
     public function testGetProxyFactory()
     {
-        $this->assertInstanceOf('\OGM\Neo4j\Proxy\ProxyFactory', $this->nm->getProxyFactory());
+        $this->assertInstanceOf('\OGM\Neo4j\Proxy\ProxyFactory', $this->gm->getProxyFactory());
     }
 
     public function testGetEventManager()
     {
-        $this->assertInstanceOf('\Doctrine\Common\EventManager', $this->nm->getEventManager());
+        $this->assertInstanceOf('\Doctrine\Common\EventManager', $this->gm->getEventManager());
     }
 
     public function testGetSchemaManager()
     {
-        $this->assertInstanceOf('\OGM\Neo4j\SchemaManager', $this->nm->getSchemaManager());
+        $this->assertInstanceOf('\OGM\Neo4j\SchemaManager', $this->gm->getSchemaManager());
     }
 	
 	public function testGetClient()
     {
-        $this->assertInstanceOf('\Neoxygen\UpDown\UpDownClient', $this->nm->getClient());
+        //$this->assertInstanceOf('\Neoxygen\UpDown\UpDownClient', $this->gm->getClient());
+		//$this->assertInstanceOf('Client', $this->gm->getClient());
+		
+		$this->assertTrue($this->gm->getClient() instanceof Client);
     }
 
 //    public function testCreateQueryBuilder()
 //    {
-//        $this->assertInstanceOf('\OGM\Neo4j\Query\Builder', $this->nm->createQueryBuilder());
+//        $this->assertInstanceOf('\OGM\Neo4j\Query\Builder', $this->gm->createQueryBuilder());
 //    }
 
 //    public function testGetFilterCollection()
 //    {
-//        $this->assertInstanceOf('\OGM\Neo4j\Query\FilterCollection', $this->nm->getFilterCollection());
+//        $this->assertInstanceOf('\OGM\Neo4j\Query\FilterCollection', $this->gm->getFilterCollection());
 //    }  
     
 	/*
     public function testGetPartialReference()
     {
-        $user = $this->nm->getPartialReference('Documents\CmsUser', 42);
-        $this->assertTrue($this->nm->contains($user));
+        $user = $this->gm->getPartialReference('Documents\CmsUser', 42);
+        $this->assertTrue($this->gm->contains($user));
         $this->assertEquals(42, $user->id);
         $this->assertNull($user->getName());
     }
@@ -89,7 +94,7 @@ class NodeManagerTest extends \OGM\Neo4j\Tests\BaseTest
 //     * @param string $methodName
 //     */
 //    public function testThrowsExceptionOnNonObjectValues($methodName) {
-//        $this->nm->$methodName(null);
+//        $this->gm->$methodName(null);
 //    }
 //
 //    static public function dataAffectedByErrorIfClosedException()
@@ -111,11 +116,11 @@ class NodeManagerTest extends \OGM\Neo4j\Tests\BaseTest
 //    {
 //        $this->setExpectedException('OGM\Neo4j\MongoDBException', 'closed');
 //
-//        $this->nm->close();
+//        $this->gm->close();
 //        if ($methodName === 'flush') {
-//            $this->nm->$methodName();
+//            $this->gm->$methodName();
 //        } else {
-//            $this->nm->$methodName(new \stdClass());
+//            $this->gm->$methodName(new \stdClass());
 //        }
 //    }
 

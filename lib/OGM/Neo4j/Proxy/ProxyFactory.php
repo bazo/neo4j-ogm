@@ -19,7 +19,7 @@
 
 namespace OGM\Neo4j\Proxy;
 
-use OGM\Neo4j\NodeManager,
+use OGM\Neo4j\GraphManager,
     OGM\Neo4j\Mapping\ClassMetadata;
 
 /**
@@ -40,8 +40,8 @@ class ProxyFactory
      */
     const MARKER = '__CG__';
 
-    /** The NodeManager this factory is bound to. */
-    private $nm;
+    /** The GraphManager this factory is bound to. */
+    private $gm;
     /** Whether to automatically (re)generate proxy classes. */
     private $autoGenerate;
     /** The namespace that contains all proxy classes. */
@@ -59,14 +59,14 @@ class ProxyFactory
 
     /**
      * Initializes a new instance of the <tt>ProxyFactory</tt> class that is
-     * connected to the given <tt>NodeManager</tt>.
+     * connected to the given <tt>GraphManager</tt>.
      *
-     * @param NodeManager $nm The NodeManager the new factory works for.
+     * @param GraphManager $gm The GraphManager the new factory works for.
      * @param string $proxyDir The directory to use for the proxy classes. It must exist.
      * @param string $proxyNs The namespace to use for the proxy classes.
      * @param boolean $autoGenerate Whether to automatically generate proxy classes.
      */
-    public function __construct(NodeManager $nm, $proxyDir, $proxyNs, $autoGenerate = false)
+    public function __construct(GraphManager $gm, $proxyDir, $proxyNs, $autoGenerate = false)
     {
         if ( ! $proxyDir) {
             throw ProxyException::proxyDirectoryRequired();
@@ -74,7 +74,7 @@ class ProxyFactory
         if ( ! $proxyNs) {
             throw ProxyException::proxyNamespaceRequired();
         }
-        $this->nm = $nm;
+        $this->gm = $gm;
         $this->proxyDir = $proxyDir;
         $this->autoGenerate = $autoGenerate;
         $this->proxyNamespace = $proxyNs;
@@ -95,16 +95,16 @@ class ProxyFactory
         if (! class_exists($fqn, false)) {
             $fileName = $this->getProxyFileName($className);
             if ($this->autoGenerate) {
-                $this->generateProxyClass($this->nm->getClassMetadata($className), $fileName, self::$proxyClassTemplate);
+                $this->generateProxyClass($this->gm->getClassMetadata($className), $fileName, self::$proxyClassTemplate);
             }
             require $fileName;
         }
 
-        if ( ! $this->nm->getMetadataFactory()->hasMetadataFor($fqn)) {
-            $this->nm->getMetadataFactory()->setMetadataFor($fqn, $this->nm->getClassMetadata($className));
+        if ( ! $this->gm->getMetadataFactory()->hasMetadataFor($fqn)) {
+            $this->gm->getMetadataFactory()->setMetadataFor($fqn, $this->gm->getClassMetadata($className));
         }
 
-        $nodePersister = $this->nm->getUnitOfWork()->getNodePersister($className);
+        $nodePersister = $this->gm->getUnitOfWork()->getNodePersister($className);
 
         return new $fqn($nodePersister, $identifier);
     }
@@ -125,7 +125,7 @@ class ProxyFactory
      *
      * @param array $classes The classes (ClassMetadata instances) for which to generate proxies.
      * @param string $toDir The target directory of the proxy classes. If not specified, the
-     *                      directory configured on the Configuration of the NodeManager used
+     *                      directory configured on the Configuration of the GraphManager used
      *                      by this factory is used.
      */
     public function generateProxyClasses(array $classes, $toDir = null)

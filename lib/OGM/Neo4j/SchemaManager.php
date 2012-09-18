@@ -21,13 +21,16 @@ namespace OGM\Neo4j;
 use OGM\Neo4j\Mapping\ClassMetadata;
 use OGM\Neo4j\Mapping\ClassMetadataFactory;
 
+use Everyman\Neo4j\Client;
+use Everyman\Neo4j\Index;
+
 class SchemaManager
 {
 
 	/**
-	 * @var OGM\Neo4j\NodeManager
+	 * @var OGM\Neo4j\GraphManager
 	 */
-	protected $nm;
+	protected $gm;
 
 	/**
 	 *
@@ -35,21 +38,24 @@ class SchemaManager
 	 */
 	protected $metadataFactory;
 	
-	/** @var \Neoxygen\UpDown\UpDownClient */
+	/** @var Client */
 	protected $client;
 
 	/**
-	 * @param OGM\Neo4j\NodeManager $nm
+	 * @param OGM\Neo4j\GraphManager $gm
 	 */
-	public function __construct(NodeManager $nm, ClassMetadataFactory $cmf)
+	public function __construct(GraphManager $gm, ClassMetadataFactory $cmf)
 	{
-		$this->nm = $nm;
+		$this->gm = $gm;
 		$this->metadataFactory = $cmf;
-		$this->client = $nm->getClient();
+		$this->client = $gm->getClient();
 	}
 
 	public function getReferenceNode()
 	{
+		return $this->client->getReferenceNode();
+		
+		/**
 		$actions = $this->client->discoverActions()->getDiscoveredActions();
 		$referenceNodeUri = $actions['reference_node'];
 		$referenceNodeId = $this->parseReferenceNodeIdFromUri($referenceNodeUri);
@@ -61,6 +67,10 @@ class SchemaManager
 		var_dump($node);exit;
 		
 		return $this->client->execute($cmd);
+		 * 
+		 * @param type $referenceNodeUri
+		 * @return type
+		 */
 	}
 	
 	private function parseReferenceNodeIdFromUri($referenceNodeUri)
@@ -70,7 +80,7 @@ class SchemaManager
 		
 		return $id;
 	}
-	
+
 	/**
 	 * Ensure indexes are created for all nodes that can be loaded with the
 	 * metadata factory.
@@ -111,7 +121,7 @@ class SchemaManager
 	 */
 	public function updateNodeIndexes($nodeName)
 	{
-		$class = $this->nm->getClassMetadata($nodeName);
+		$class = $this->gm->getClassMetadata($nodeName);
 		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
 		{
 			throw new \InvalidArgumentException('Cannot update node indexes for mapped super classes or embedded nodes.');
@@ -120,7 +130,7 @@ class SchemaManager
 		if ($nodeIndexes = $this->getNodeIndexes($nodeName))
 		{
 
-			$collection = $this->nm->getNodeCollection($nodeName);
+			$collection = $this->gm->getNodeCollection($nodeName);
 			$mongoIndexes = $collection->getIndexInfo();
 
 			/* Determine which Mongo indexes should be deleted. Exclude the ID
@@ -179,7 +189,7 @@ class SchemaManager
 			{
 				continue;
 			}
-			if ($collection = $this->nm->getNodeCollection($class->name))
+			if ($collection = $this->gm->getNodeCollection($class->name))
 			{
 				$indexes = $collection->getIndexInfo();
 				if ($raw)
@@ -188,16 +198,16 @@ class SchemaManager
 				}
 				else
 				{
-					$onmIndexes = array();
+					$ogmIndexes = array();
 					foreach ($indexes as $rawIndex)
 					{
 						if ($rawIndex['name'] === '_id_')
 						{
 							continue;
 						}
-						$onmIndexes[] = $this->rawIndexToNodeIndex($rawIndex);
+						$ogmIndexes[] = $this->rawIndexToNodeIndex($rawIndex);
 					}
-					$all[$class->name] = $onmIndexes;
+					$all[$class->name] = $ogmIndexes;
 				}
 			}
 		}
@@ -220,7 +230,7 @@ class SchemaManager
 
 		$visited[$nodeName] = true;
 
-		$class = $this->nm->getClassMetadata($nodeName);
+		$class = $this->gm->getClassMetadata($nodeName);
 		$indexes = $this->prepareIndexes($class);
 
 		// Add indexes from embedded & referenced nodes
@@ -261,7 +271,7 @@ class SchemaManager
 
 	private function prepareIndexes(ClassMetadata $class)
 	{
-		$persister = $this->nm->getUnitOfWork()->getNodePersister($class->name);
+		$persister = $this->gm->getUnitOfWork()->getNodePersister($class->name);
 		$indexes = $class->getIndexes();
 		$newIndexes = array();
 
@@ -303,14 +313,14 @@ class SchemaManager
 	 */
 	public function ensureNodeIndexes($nodeName)
 	{
-		$class = $this->nm->getClassMetadata($nodeName);
+		$class = $this->gm->getClassMetadata($nodeName);
 		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
 		{
 			throw new \InvalidArgumentException('Cannot create node indexes for mapped super classes or embedded nodes.');
 		}
 		if ($indexes = $this->getNodeIndexes($nodeName))
 		{
-			$collection = $this->nm->getNodeCollection($class->name);
+			$collection = $this->gm->getNodeCollection($class->name);
 			foreach ($indexes as $index)
 			{
 				if (!isset($index['options']['safe']))
@@ -345,12 +355,12 @@ class SchemaManager
 	 */
 	public function deleteNodeIndexes($nodeName)
 	{
-		$class = $this->nm->getClassMetadata($nodeName);
+		$class = $this->gm->getClassMetadata($nodeName);
 		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
 		{
 			throw new \InvalidArgumentException('Cannot delete node indexes for mapped super classes or embedded nodes.');
 		}
-		$this->nm->getNodeCollection($nodeName)->deleteIndexes();
+		$this->gm->getNodeCollection($nodeName)->deleteIndexes();
 	}
 
 	/**
@@ -358,13 +368,14 @@ class SchemaManager
 	 */
 	public function createCollections()
 	{
+		$referenceNode = $this->getReferenceNode();
 		foreach ($this->metadataFactory->getAllMetadata() as $class)
 		{
-			if ($class->isMappedSuperclass || $class->isEmbeddedNode)
+			if ($class->isMappedSuperclass || $class->isRelationship)
 			{
 				continue;
 			}
-			$this->createNodeCollection($class->name);
+			$this->createNodeCollection($class->name, $referenceNode);
 		}
 	}
 
@@ -373,16 +384,30 @@ class SchemaManager
 	 *
 	 * @param string $nodeName
 	 */
-	public function createNodeCollection($nodeName)
+	public function createNodeCollection($nodeName, $referenceNode)
 	{
-		$class = $this->nm->getClassMetadata($nodeName);
-		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
+		$class = $this->gm->getClassMetadata($nodeName);
+		
+		if ($class->isMappedSuperclass || $class->isRelationship)
 		{
 			throw new \InvalidArgumentException('Cannot create node collection for mapped super classes or embedded nodes.');
 		}
-		$this->nm->getNodeDatabase($nodeName)->createCollection(
-				$class->getCollection(), $class->getCollectionCapped(), $class->getCollectionSize(), $class->getCollectionMax()
-		);
+		
+		$client = $this->gm->getClient();
+		
+		$index = new Index($client, Index::TypeNode, 'collections');
+		
+		$client->saveIndex($index);
+		
+		$node = $this->gm->getClient()->makeNode(array(
+			'name' => $nodeName
+		));
+
+		$client->saveNode($node);
+		
+		$client->addToIndex($index, $node, 'name', $nodeName);
+		
+		$node->relateTo($referenceNode, ':COLLECTION:')->save();
 	}
 
 	/**
@@ -407,135 +432,13 @@ class SchemaManager
 	 */
 	public function dropNodeCollection($nodeName)
 	{
-		$class = $this->nm->getClassMetadata($nodeName);
+		$class = $this->gm->getClassMetadata($nodeName);
 		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
 		{
 			throw new \InvalidArgumentException('Cannot delete node indexes for mapped super classes or embedded nodes.');
 		}
-		$this->nm->getNodeDatabase($nodeName)->dropCollection(
+		$this->gm->getNodeDatabase($nodeName)->dropCollection(
 				$class->getCollection()
 		);
 	}
-
-	/**
-	 * Drop all the mapped node databases in the metadata factory.
-	 */
-	public function dropDatabases()
-	{
-		foreach ($this->metadataFactory->getAllMetadata() as $class)
-		{
-			if ($class->isMappedSuperclass || $class->isEmbeddedNode)
-			{
-				continue;
-			}
-			$this->dropNodeDatabase($class->name);
-		}
-	}
-
-	/**
-	 * Drop the node database for a mapped class.
-	 *
-	 * @param string $nodeName
-	 */
-	public function dropNodeDatabase($nodeName)
-	{
-		$class = $this->nm->getClassMetadata($nodeName);
-		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
-		{
-			throw new \InvalidArgumentException('Cannot drop node database for mapped super classes or embedded nodes.');
-		}
-		$this->nm->getNodeDatabase($nodeName)->drop();
-	}
-
-	/**
-	 * Create all the mapped node databases in the metadata factory.
-	 */
-	public function createDatabases()
-	{
-		foreach ($this->metadataFactory->getAllMetadata() as $class)
-		{
-			if ($class->isMappedSuperclass || $class->isEmbeddedNode)
-			{
-				continue;
-			}
-			$this->createNodeDatabase($class->name);
-		}
-	}
-
-	/**
-	 * Create the node database for a mapped class.
-	 *
-	 * @param string $nodeName
-	 */
-	public function createNodeDatabase($nodeName)
-	{
-		$class = $this->nm->getClassMetadata($nodeName);
-		if ($class->isMappedSuperclass || $class->isEmbeddedNode)
-		{
-			throw new \InvalidArgumentException('Cannot delete node indexes for mapped super classes or embedded nodes.');
-		}
-		$this->nm->getNodeDatabase($nodeName)->execute("function() { return true; }");
-	}
-
-	/**
-	 * Determine if an index returned by MongoCollection::getIndexInfo() can be
-	 * considered equivalent to an index in class metadata.
-	 *
-	 * Indexes are considered different if:
-	 *
-	 *   (a) Key/direction pairs differ or are not in the same order
-	 *   (b) Sparse or unique options differ
-	 *   (c) Mongo index is unique without dropDups and mapped index is unique
-	 *       with dropDups
-	 *   (d) Geospatial options differ (bits, max, min)
-	 *
-	 * Regarding (c), the inverse case is not a reason to delete and
-	 * recreate the index, since dropDups only affects creation of
-	 * the unique index. Additionally, the background option is only
-	 * relevant to index creation and is not considered.
-	 */
-	public function isMongoIndexEquivalentToNodeIndex($mongoIndex, $nodeIndex)
-	{
-		$nodeIndexOptions = $nodeIndex['options'];
-
-		if ($mongoIndex['key'] !== $nodeIndex['keys'])
-		{
-			return false;
-		}
-
-		if (empty($mongoIndex['sparse']) xor empty($nodeIndexOptions['sparse']))
-		{
-			return false;
-		}
-
-		if (empty($mongoIndex['unique']) xor empty($nodeIndexOptions['unique']))
-		{
-			return false;
-		}
-
-		if (!empty($mongoIndex['unique']) && empty($mongoIndex['dropDups']) &&
-				!empty($nodeIndexOptions['unique']) && !empty($nodeIndexOptions))
-		{
-
-			return false;
-		}
-
-		foreach (array('bits', 'max', 'min') as $option)
-		{
-			if (isset($mongoIndex[$option]) xor isset($nodeIndexOptions[$option]))
-			{
-				return false;
-			}
-
-			if (isset($mongoIndex[$option]) && isset($nodeIndexOptions[$option]) &&
-					$mongoIndex[$option] !== $nodeIndexOptions[$option])
-			{
-
-				return false;
-			}
-		}
-
-		return true;
-	}
-
 }

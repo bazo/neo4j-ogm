@@ -3,7 +3,7 @@
 namespace OGM\Neo4j\Tests;
 
 
-use OGM\Neo4j\NodeManager;
+use OGM\Neo4j\GraphManager;
 use OGM\Neo4j\Configuration;
 use OGM\Neo4j\Mapping\ClassMetadata;
 use OGM\Neo4j\Mapping\Driver\AnnotationDriver;
@@ -11,13 +11,15 @@ use OGM\Neo4j\Tests\Mocks\MetadataDriverMock;
 use OGM\Neo4j\Tests\Mocks\DocumentManagerMock;
 use OGM\Neo4j\Tests\Mocks\ConnectionMock;
 
+use Doctrine\Common\Annotations\AnnotationRegistry;
+
 use Doctrine\Common\EventManager;
 use Doctrine\Common\Annotations\AnnotationReader;
 
 abstract class BaseTest extends \PHPUnit_Framework_TestCase
 {
-	/** @var NodeManager */
-    protected $nm;
+	/** @var GraphManager */
+    protected $gm;
 	
 	/** @var Unit */
     protected $uow;
@@ -28,7 +30,6 @@ abstract class BaseTest extends \PHPUnit_Framework_TestCase
     public function setUp()
     {
         $config = new Configuration();
-
 		
         $config->setProxyDir(__DIR__ . '/../../../Proxies');
         $config->setProxyNamespace('Proxies');
@@ -37,15 +38,20 @@ abstract class BaseTest extends \PHPUnit_Framework_TestCase
         $config->setHydratorNamespace('Hydrators');
 
         $reader = new AnnotationReader();
-        $this->annotationDriver = new AnnotationDriver($reader, __DIR__ . '/../../../Nodes');
-        $config->setMetadataDriverImpl($this->annotationDriver);
+        $annotationDriver = new AnnotationDriver($reader, __DIR__ . '/../../../Nodes');
+		$annotationDriver->registerAnnotationClasses();
+		AnnotationRegistry::registerAutoloadNamespace("OGM\Neo4j\Mapping\Annotations", __DIR__ . '/../../../../../lib/OGM/Neo4j/Mapping/Annotations/OGM/Annotations');
+        $config->setMetadataDriverImpl($annotationDriver);
 
-		$client = \Neoxygen\UpDown\UpDownClient::factory(array('host' => '127.0.0.1', 'port' => 7474));
+		//$client = \Neoxygen\UpDown\UpDownClient::factory(array('host' => '127.0.0.1', 'port' => 7474));
+		
+		$client = new \Everyman\Neo4j\Client;
+		
 		$evm = new EventManager;
 		
-        $this->nm = NodeManager::create($config, $client, $evm);
-        $this->uow = $this->nm->getUnitOfWork();
-		$this->schemaManager = $this->nm->getSchemaManager();
+        $this->gm = GraphManager::create($config, $client, $evm);
+        $this->uow = $this->gm->getUnitOfWork();
+		$this->schemaManager = $this->gm->getSchemaManager();
     }
 
     protected function getTestDocumentManager($metadataDriver = null)
@@ -69,14 +75,9 @@ abstract class BaseTest extends \PHPUnit_Framework_TestCase
 
     public function tearDown()
     {
-		/*
-        if ($this->dm) {
-            $collections = $this->dm->getConnection()->selectDatabase('doctrine_odm_tests')->listCollections();
-            foreach ($collections as $collection) {
-                $collection->drop();
-            }
-        }
-		 * 
-		 */
+		$client = $this->gm->getClient();
+		
+		$path = '/cleandb/secret-key';
+		$response = $client->getTransport()->delete($path);
     }
 }

@@ -20,7 +20,7 @@
 namespace OGM\Neo4j\Hydrator;
 
 use OGM\Neo4j\Mapping\ClassMetadata;
-use OGM\Neo4j\NodeManager;
+use OGM\Neo4j\GraphManager;
 use OGM\Neo4j\Mapping\Types\Type;
 use OGM\Neo4j\UnitOfWork;
 use OGM\Neo4j\Events;
@@ -43,11 +43,11 @@ use OGM\Neo4j\Proxy\Proxy;
 class HydratorFactory
 {
     /**
-     * The NodeManager this factory is bound to.
+     * The GraphManager this factory is bound to.
      *
-     * @var OGM\Neo4j\NodeManager
+     * @var OGM\Neo4j\GraphManager
      */
-    private $nm;
+    private $gm;
 
     /**
      * The UnitOfWork used to coordinate object-level transactions.
@@ -91,7 +91,7 @@ class HydratorFactory
      */
     private $hydrators = array();
 
-    public function __construct(NodeManager $nm, EventManager $evm, $hydratorDir, $hydratorNs, $autoGenerate)
+    public function __construct(GraphManager $gm, EventManager $evm, $hydratorDir, $hydratorNs, $autoGenerate)
     {
         if ( ! $hydratorDir) {
             throw HydratorException::hydratorDirectoryRequired();
@@ -99,7 +99,7 @@ class HydratorFactory
         if ( ! $hydratorNs) {
             throw HydratorException::hydratorNamespaceRequired();
         }
-        $this->nm                = $nm;
+        $this->gm                = $gm;
         $this->evm               = $evm;
         $this->hydratorDir       = $hydratorDir;
         $this->hydratorNamespace = $hydratorNs;
@@ -129,7 +129,7 @@ class HydratorFactory
         }
         $hydratorClassName = str_replace('\\', '', $className) . 'Hydrator';
         $fqn = $this->hydratorNamespace . '\\' . $hydratorClassName;
-        $class = $this->nm->getClassMetadata($className);
+        $class = $this->gm->getClassMetadata($className);
 
         if (! class_exists($fqn, false)) {
             $fileName = $this->hydratorDir . DIRECTORY_SEPARATOR . $hydratorClassName . '.php';
@@ -138,7 +138,7 @@ class HydratorFactory
             }
             require $fileName;
         }
-        $this->hydrators[$className] = new $fqn($this->nm, $this->unitOfWork, $class);
+        $this->hydrators[$className] = new $fqn($this->gm, $this->unitOfWork, $class);
         return $this->hydrators[$className];
     }
 
@@ -147,7 +147,7 @@ class HydratorFactory
      *
      * @param array $classes The classes (ClassMetadata instances) for which to generate hydrators.
      * @param string $toDir The target directory of the hydrator classes. If not specified, the
-     *                      directory configured on the Configuration of the NodeManager used
+     *                      directory configured on the Configuration of the GraphManager used
      *                      by this factory is used.
      */
     public function generateHydratorClasses(array $classes, $toDir = null)
@@ -226,12 +226,12 @@ EOF
                 \$className = \$this->class->fieldMappings['%2\$s']['targetNode'];
                 \$mongoId = \$reference;
             } else {
-                \$className = \$this->nm->getClassNameFromDiscriminatorValue(\$this->class->fieldMappings['%2\$s'], \$reference);
+                \$className = \$this->gm->getClassNameFromDiscriminatorValue(\$this->class->fieldMappings['%2\$s'], \$reference);
                 \$mongoId = \$reference['\$id'];
             }
-            \$targetMetadata = \$this->nm->getClassMetadata(\$className);
+            \$targetMetadata = \$this->gm->getClassMetadata(\$className);
             \$id = \$targetMetadata->getPHPIdentifierValue(\$mongoId);
-            \$return = \$this->nm->getReference(\$className, \$id);
+            \$return = \$this->gm->getReference(\$className, \$id);
             \$this->class->reflFields['%2\$s']->setValue(\$node, \$return);
             \$hydratedData['%2\$s'] = \$return;
         }
@@ -246,7 +246,7 @@ EOF
                     $code .= sprintf(<<<EOF
 
         \$className = \$this->class->fieldMappings['%2\$s']['targetNode'];
-        \$return = \$this->nm->getRepository(\$className)->%3\$s(\$node);
+        \$return = \$this->gm->getRepository(\$className)->%3\$s(\$node);
         \$this->class->reflFields['%2\$s']->setValue(\$node, \$return);
         \$hydratedData['%2\$s'] = \$return;
 
@@ -261,7 +261,7 @@ EOF
 
         \$mapping = \$this->class->fieldMappings['%2\$s'];
         \$className = \$mapping['targetNode'];
-        \$targetClass = \$this->nm->getClassMetadata(\$mapping['targetNode']);
+        \$targetClass = \$this->gm->getClassMetadata(\$mapping['targetNode']);
         \$mappedByMapping = \$targetClass->fieldMappings[\$mapping['mappedBy']];
         \$mappedByFieldName = isset(\$mappedByMapping['simple']) && \$mappedByMapping['simple'] ? \$mapping['mappedBy'] : \$mapping['mappedBy'].'.id';
         \$criteria = array_merge(
@@ -284,7 +284,7 @@ EOF
 
         /** @Many */
         \$mongoData = isset(\$data['%1\$s']) ? \$data['%1\$s'] : null;
-        \$return = new \OGM\Neo4j\PersistentCollection(new \Doctrine\Common\Collections\ArrayCollection(), \$this->nm, \$this->unitOfWork, '$');
+        \$return = new \OGM\Neo4j\PersistentCollection(new \Doctrine\Common\Collections\ArrayCollection(), \$this->gm, \$this->unitOfWork, '$');
         \$return->setHints(\$hints);
         \$return->setOwner(\$node, \$this->class->fieldMappings['%2\$s']);
         \$return->setInitialized(false);
@@ -305,11 +305,11 @@ EOF
         /** @EmbedOne */
         if (isset(\$data['%1\$s'])) {
             \$embeddedNode = \$data['%1\$s'];
-            \$className = \$this->nm->getClassNameFromDiscriminatorValue(\$this->class->fieldMappings['%2\$s'], \$embeddedNode);
-            \$embeddedMetadata = \$this->nm->getClassMetadata(\$className);
+            \$className = \$this->gm->getClassNameFromDiscriminatorValue(\$this->class->fieldMappings['%2\$s'], \$embeddedNode);
+            \$embeddedMetadata = \$this->gm->getClassMetadata(\$className);
             \$return = \$embeddedMetadata->newInstance();
 
-            \$embeddedData = \$this->nm->getHydratorFactory()->hydrate(\$return, \$embeddedNode, \$hints);
+            \$embeddedData = \$this->gm->getHydratorFactory()->hydrate(\$return, \$embeddedNode, \$hints);
             \$this->unitOfWork->registerManaged(\$return, null, \$embeddedData);
             \$this->unitOfWork->setParentAssociation(\$return, \$this->class->fieldMappings['%2\$s'], \$node, '%1\$s');
 
@@ -332,7 +332,7 @@ EOF
 
 namespace $namespace;
 
-use OGM\Neo4j\NodeManager;
+use OGM\Neo4j\GraphManager;
 use OGM\Neo4j\Mapping\ClassMetadata;
 use OGM\Neo4j\Hydrator\HydratorInterface;
 use OGM\Neo4j\UnitOfWork;
@@ -342,13 +342,13 @@ use OGM\Neo4j\UnitOfWork;
  */
 class $hydratorClassName implements HydratorInterface
 {
-    private \$nm;
+    private \$gm;
     private \$unitOfWork;
     private \$class;
 
-    public function __construct(NodeManager \$nm, UnitOfWork \$uow, ClassMetadata \$class)
+    public function __construct(GraphManager \$gm, UnitOfWork \$uow, ClassMetadata \$class)
     {
-        \$this->nm = \$nm;
+        \$this->gm = \$gm;
         \$this->unitOfWork = \$uow;
         \$this->class = \$class;
     }
@@ -377,14 +377,14 @@ EOF
      */
     public function hydrate($node, $data, array $hints = array())
     {
-        $metadata = $this->nm->getClassMetadata(get_class($node));
+        $metadata = $this->gm->getClassMetadata(get_class($node));
         // Invoke preLoad lifecycle events and listeners
         if (isset($metadata->lifecycleCallbacks[Events::preLoad])) {
             $args = array(&$data);
             $metadata->invokeLifecycleCallbacks(Events::preLoad, $node, $args);
         }
         if ($this->evm->hasListeners(Events::preLoad)) {
-            $this->evm->dispatchEvent(Events::preLoad, new PreLoadEventArgs($node, $this->nm, $data));
+            $this->evm->dispatchEvent(Events::preLoad, new PreLoadEventArgs($node, $this->gm, $data));
         }
 
         // Use the alsoLoadMethods on the node object to transform the data before hydration
@@ -406,7 +406,7 @@ EOF
             $metadata->invokeLifecycleCallbacks(Events::postLoad, $node);
         }
         if ($this->evm->hasListeners(Events::postLoad)) {
-            $this->evm->dispatchEvent(Events::postLoad, new LifecycleEventArgs($node, $this->nm));
+            $this->evm->dispatchEvent(Events::postLoad, new LifecycleEventArgs($node, $this->gm));
         }
 
         return $data;

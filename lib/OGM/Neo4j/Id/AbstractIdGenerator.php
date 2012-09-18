@@ -17,10 +17,10 @@
  * <http://www.doctrine-project.org>.
  */
 
-namespace Doctrine\ODM\MongoDB\Id;
+namespace OGM\Neo4j\Id;
 
-use Doctrine\ODM\MongoDB\DocumentManager;
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
+use OGM\Neo4j\GraphManager;
+use OGM\Neo4j\Mapping\ClassMetadata;
 
 /**
  * AbstractIdGenerator
@@ -35,8 +35,9 @@ abstract class AbstractIdGenerator
     /**
      * Generates an identifier for a document.
      *
-     * @param Doctrine\ODM\MongoDB\DocumentManager $document
+     * @param OGM\Neo4j\GraphManager $gm
+	 * @parm mixed $node
      * @return mixed
      */
-    abstract public function generate(DocumentManager $dm, $document);
+    abstract public function generate(GraphManager $gm, $node);
 }

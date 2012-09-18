@@ -1,8 +1,8 @@
 <?php
 
-namespace Doctrine\ODM\MongoDB\Tools\Console\Command\Schema;
+namespace OGM\Neo4j\Tools\Console\Command\Schema;
 
-use Doctrine\ODM\MongoDB\SchemaManager;
+use OGM\Neo4j\SchemaManager;
 use Symfony\Component\Console\Input;
 use Symfony\Component\Console\Output;
 

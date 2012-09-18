@@ -17,10 +17,10 @@
  * <http://www.doctrine-project.org>.
  */
 
-namespace Doctrine\ODM\MongoDB\Id;
+namespace OGM\Neo4j\Id;
 
-use Doctrine\ODM\MongoDB\DocumentManager;
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
+use OGM\Neo4j\GraphManager;
+use OGM\Neo4j\Mapping\ClassMetadata;
 
 /**
  * AutoGenerator generates a native MongoId
@@ -33,8 +33,8 @@ use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
 class AutoGenerator extends AbstractIdGenerator
 {
     /** @inheritDoc */
-    public function generate(DocumentManager $dm, $document)
+    public function generate(GraphManager $dm, $node)
     {
-        return new \MongoId();
+        //return new \MongoId();
     }
 }

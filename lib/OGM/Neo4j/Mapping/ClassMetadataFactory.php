@@ -23,7 +23,7 @@ use Doctrine\Common\Persistence\Mapping\AbstractClassMetadataFactory;
 use Doctrine\Common\Persistence\Mapping\ClassMetadata as ClassMetadataInterface;
 use Doctrine\Common\Persistence\Mapping\ReflectionService;
 
-use OGM\Neo4j\NodeManager;
+use OGM\Neo4j\GraphManager;
 use OGM\Neo4j\Configuration;
 use OGM\Neo4j\Mapping\ClassMetadata;
 use OGM\Neo4j\Mapping\MappingException;
@@ -42,8 +42,8 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
 {
     protected $cacheSalt = "\$MONGODBODMCLASSMETADATA";
 
-    /** @var NodeManager The NodeManager instance */
-    private $nm;
+    /** @var GraphManager The GraphManager instance */
+    private $gm;
 
     /** @var Configuration The Configuration instance */
     private $config;
@@ -55,13 +55,13 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     private $evm;
 
     /**
-     * Sets the NodeManager instance for this class.
+     * Sets the GraphManager instance for this class.
      *
-     * @param NodeManager $nm The NodeManager instance
+     * @param GraphManager $gm The GraphManager instance
      */
-    public function setNodeManager(NodeManager $nm)
+    public function setGraphManager(GraphManager $gm)
     {
-        $this->nm = $nm;
+        $this->gm = $gm;
     }
 
     /**
@@ -81,7 +81,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
     protected function initialize()
     {
         $this->driver = $this->config->getMetadataDriverImpl();
-        $this->evm = $this->nm->getEventManager();
+        $this->evm = $this->gm->getEventManager();
         $this->initialized = true;
     }
 
@@ -120,7 +120,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
      */
     protected function isEntity(ClassMetadataInterface $class)
     {
-        return ! $class->isMappedSuperclass && ! $class->isEmbeddedNode;
+        return ! $class->isMappedSuperclass;
     }
 
     /**
@@ -179,7 +179,7 @@ class ClassMetadataFactory extends AbstractClassMetadataFactory
         $class->setParentClasses($nonSuperclassParents);
 
         if ($this->evm->hasListeners(Events::loadClassMetadata)) {
-            $eventArgs = new \OGM\Neo4j\Event\LoadClassMetadataEventArgs($class, $this->nm);
+            $eventArgs = new \OGM\Neo4j\Event\LoadClassMetadataEventArgs($class, $this->gm);
             $this->evm->dispatchEvent(Events::loadClassMetadata, $eventArgs);
         }
     }
